@@ -55,6 +55,7 @@ members = [
     "crates/deepseek",
     "crates/denoise",
     "crates/diagnostics",
+    "crates/diff_viewer",
     "crates/docs_preprocessor",
     "crates/edit_prediction",
     "crates/edit_prediction_button",
@@ -292,6 +293,7 @@ debugger_tools = { path = "crates/debugger_tools" }
 debugger_ui = { path = "crates/debugger_ui" }
 deepseek = { path = "crates/deepseek" }
 diagnostics = { path = "crates/diagnostics" }
+diff_viewer = { path = "crates/diff_viewer" }
 editor = { path = "crates/editor" }
 extension = { path = "crates/extension" }
 extension_host = { path = "crates/extension_host" }
@@ -780,12 +782,15 @@ windows-capture = { git = "https://github.com/zed-industries/windows-capture.git
 workspace-hack = { path = "tooling/workspace-hack" }
 
 [profile.dev]
-split-debuginfo = "unpacked"
-codegen-units = 16
+debug = 1
+incremental = true
+lto = false
+codegen-units = 256
 
 # mirror configuration for crates compiled for the build platform
 # (without this cargo will compile ~400 crates twice)
 [profile.dev.build-override]
+opt-level = 0
 codegen-units = 16
 
 [profile.dev.package]
@@ -839,6 +844,9 @@ time_format = { codegen-units = 1 }
 ui_input = { codegen-units = 1 }
 zed_actions = { codegen-units = 1 }
 
+[profile.dev.package."*"]
+opt-level = 0
+
 [profile.release]
 debug = "limited"
 lto = "thin"
@@ -852,6 +860,24 @@ inherits = "release"
 debug = "full"
 lto = false
 codegen-units = 16
+
+[profile.bundle]
+# Optimized profile for frequent bundle operations
+inherits = "release"
+incremental = true     # Enable incremental compilation
+debug = "limited"      # Include some debug info for troubleshooting
+lto = false           # Disable LTO for faster builds
+codegen-units = 32    # More codegen units for parallel compilation
+opt-level = 2         # Good optimization without excessive compile time
+panic = "abort"       # Slightly faster builds by not including unwinding code
+overflow-checks = false  # Skip overflow checks for faster builds
+
+[profile.bundle.package]
+# Keep some critical dependencies optimized even in bundle profile
+zed = { codegen-units = 8 }     # Balance between build speed and runtime performance
+gpui = { opt-level = 3 }        # UI framework should be well optimized
+taffy = { opt-level = 3 }       # Layout engine optimization
+resvg = { opt-level = 3 }       # SVG rendering optimization
 
 [workspace.lints.rust]
 unexpected_cfgs = { level = "allow" }

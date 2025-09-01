@@ -1,6 +1,5 @@
 use std::any::Any;
 
-use ::settings::Settings;
 use command_palette_hooks::CommandPaletteFilter;
 use commit_modal::CommitModal;
 use editor::{Editor, actions::DiffClipboardWithSelectionData};
@@ -28,7 +27,9 @@ use ui::prelude::*;
 use workspace::{ModalView, Workspace, notifications::DetachAndPromptErr};
 use zed_actions;
 
-use crate::{git_panel::GitPanel, text_diff_view::TextDiffView};
+use crate::{git_panel::GitPanel, perfect_split_diff_view::PerfectSplitDiffView, text_diff_view::TextDiffView};
+// use crate::enhanced_diff_view;
+use settings::Settings;
 
 mod askpass_modal;
 pub mod branch_picker;
@@ -36,14 +37,18 @@ mod commit_modal;
 pub mod commit_tooltip;
 mod commit_view;
 mod conflict_view;
+// pub mod enhanced_diff_view;
 pub mod file_diff_view;
 pub mod git_panel;
 mod git_panel_settings;
 pub mod onboarding;
+pub mod perfect_split_diff_view;
 pub mod picker_prompt;
 pub mod project_diff;
 pub(crate) mod remote_output;
 pub mod repository_selector;
+pub mod split_diff_model;
+pub mod split_diff_settings;
 pub mod stash_picker;
 pub mod text_diff_view;
 
@@ -51,12 +56,41 @@ actions!(
     git,
     [
         /// Resets the git onboarding state to show the tutorial again.
-        ResetOnboarding
+        ResetOnboarding,
+        /// Toggle between split and unified diff views
+        ToggleViewMode,
+        /// Swap left and right sides
+        SwapSides,
+        /// Go to next diff hunk
+        NextHunk,
+        /// Go to previous diff hunk
+        PreviousHunk,
+        /// Stage the current hunk
+        StageHunk,
+        /// Unstage the current hunk
+        UnstageHunk,
+        /// Copy left side to right side
+        CopyLeftToRight,
+        /// Copy right side to left side
+        CopyRightToLeft,
+        /// Toggle synchronized scrolling
+        ToggleSyncScroll,
+        /// Toggle word wrap
+        ToggleWordWrap,
+        /// Toggle whitespace ignoring
+        ToggleIgnoreWhitespace,
+        /// Toggle intra-line highlighting
+        ToggleIntraline,
+        /// Collapse unchanged regions
+        CollapseUnchanged,
+        /// Expand unchanged regions
+        ExpandUnchanged,
     ]
 );
 
 pub fn init(cx: &mut App) {
     GitPanelSettings::register(cx);
+    split_diff_settings::SplitDiffSettings::register(cx);
 
     editor::set_blame_renderer(blame_ui::GitBlameRenderer, cx);
 
@@ -66,12 +100,16 @@ pub fn init(cx: &mut App) {
     .detach();
 
     cx.observe_new(|workspace: &mut Workspace, _, cx| {
-        ProjectDiff::register(workspace, cx);
+            ProjectDiff::register(workspace, cx);
+            PerfectSplitDiffView::register(workspace, cx); // Perfect implementation
         CommitModal::register(workspace);
         git_panel::register(workspace);
         repository_selector::register(workspace);
         branch_picker::register(workspace);
         stash_picker::register(workspace);
+        
+        // Register enhanced diff view actions
+        // enhanced_diff_view::register_enhanced_diff_actions(cx);
 
         let project = workspace.project().read(cx);
         if project.is_read_only(cx) {

@@ -8,6 +8,7 @@ use crate::{branch_picker, picker_prompt, render_remote_button};
 use crate::{
     git_panel_settings::GitPanelSettings, git_status_icon, repository_selector::RepositorySelector,
 };
+
 use agent_settings::AgentSettings;
 use anyhow::Context as _;
 use askpass::AskPassDelegate;
@@ -15,6 +16,8 @@ use db::kvp::KEY_VALUE_STORE;
 use editor::{Editor, EditorElement, EditorMode, MultiBuffer};
 use futures::StreamExt as _;
 use git::blame::ParsedCommitMessage;
+use git::repository::RepoPath;
+
 use git::repository::{
     Branch, CommitDetails, CommitOptions, CommitSummary, DiffType, FetchOptions, GitCommitter,
     PushOptions, Remote, RemoteCommandOutput, ResetMode, Upstream, UpstreamTracking,
@@ -22,7 +25,7 @@ use git::repository::{
 };
 use git::stash::GitStash;
 use git::status::StageStatus;
-use git::{Amend, Signoff, ToggleStaged, repository::RepoPath, status::FileStatus};
+use git::{Amend, Signoff, ToggleStaged, status::FileStatus};
 use git::{
     ExpandCommitEditor, RestoreTrackedFiles, StageAll, StashAll, StashApply, StashPop,
     TrashUntrackedFiles, UnstageAll,
@@ -89,6 +92,10 @@ actions!(
         ToggleFillCoAuthors,
         /// Toggles sorting entries by path vs status.
         ToggleSortByPath,
+        /// Opens a split diff view for the selected file.
+        OpenSplitDiff,
+        /// Opens an enhanced JetBrains-style diff view for the selected file.
+        OpenEnhancedDiff,
     ]
 );
 
@@ -150,6 +157,8 @@ fn git_panel_context_menu(
             .action("View Stash", zed_actions::git::ViewStash.boxed_clone())
             .separator()
             .action("Open Diff", project_diff::Diff.boxed_clone())
+            .action("Open Split Diff", OpenSplitDiff.boxed_clone())
+            .action("Open Enhanced Diff", OpenEnhancedDiff.boxed_clone())
             .separator()
             .action_disabled_when(
                 !state.has_tracked_changes,
@@ -787,6 +796,81 @@ impl GitPanel {
                 })
                 .ok();
             self.focus_handle.focus(window);
+
+            Some(())
+        });
+    }
+
+    fn open_split_diff(&mut self, _: &OpenSplitDiff, window: &mut Window, cx: &mut Context<Self>) {
+        maybe!({
+            let entry = self.entries.get(self.selected_entry?)?.status_entry()?;
+            let workspace = self.workspace.upgrade()?;
+            let git_repo = self.active_repository.as_ref()?;
+
+            // Get the project path for the file
+            let project_path = git_repo
+                .read(cx)
+                .repo_path_to_project_path(&entry.repo_path, cx)?;
+
+            // Get working directory buffer
+            let project = workspace.read(cx).project().clone();
+            let left_buffer = project.update(cx, |project, cx| {
+                project.open_buffer(project_path.clone(), cx)
+            });
+
+            // Get committed content from git repository
+            let right_content = git_repo.update(cx, |repo, _cx| {
+                repo.get_committed_text(entry.repo_path.clone(), _cx)
+            });
+
+            let workspace_handle = workspace.downgrade();
+            let project = workspace.read(cx).project().clone();
+
+            // let settings = SplitDiffSettings::get_global(cx);
+            // let options = DiffOptions::from_settings(&settings);
+
+            window
+                .spawn(cx, async move |cx| {
+                    let left_buffer = left_buffer.await?;
+                    let right_content = right_content.await.unwrap_or_default();
+
+                    // Create the split diff model and view
+                    let right_buffer = cx.new(|cx| Buffer::local(&right_content, cx))?;
+                    let left_text = cx.update_model(&left_buffer, |buffer, _| buffer.text())?;
+                    let model = crate::split_diff_model::SplitDiffModel::new(
+                        left_text,
+                        right_content,
+                    );
+                    
+                    workspace_handle.update_in(cx, |workspace, window, cx| {
+                        let view = cx.new(|cx| crate::perfect_split_diff_view::PerfectSplitDiffView::new(
+                            project,
+                            workspace_handle.clone(),
+                            model,
+                            window,
+                            cx,
+                        ));
+                        workspace.add_item_to_active_pane(Box::new(view), None, true, window, cx);
+                    })?;
+                    
+                    anyhow::Ok(())
+                })
+                .detach_and_log_err(cx);
+
+            self.focus_handle.focus(window);
+            Some(())
+        });
+    }
+
+    fn open_enhanced_diff(&mut self, _: &OpenEnhancedDiff, window: &mut Window, cx: &mut Context<Self>) {
+        maybe!({
+            let entry = self.entries.get(self.selected_entry?)?.status_entry()?;
+            let workspace = self.workspace.upgrade()?;
+            let git_repo = self.active_repository.as_ref()?;
+
+            // Enhanced diff functionality temporarily disabled
+            // TODO: Re-enable when split_diff modules are available
+            let _ = (git_repo, entry, workspace); // Prevent unused variable warnings
 
             Some(())
         });
@@ -4253,6 +4337,8 @@ impl Render for GitPanel {
             .on_action(cx.listener(Self::select_last))
             .on_action(cx.listener(Self::close_panel))
             .on_action(cx.listener(Self::open_diff))
+            .on_action(cx.listener(Self::open_split_diff))
+            .on_action(cx.listener(Self::open_enhanced_diff))
             .on_action(cx.listener(Self::open_file))
             .on_action(cx.listener(Self::focus_changes_list))
             .on_action(cx.listener(Self::focus_editor))

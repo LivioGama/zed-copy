@@ -2,7 +2,10 @@ use crate::{
     conflict_view::ConflictAddon,
     git_panel::{GitPanel, GitPanelAddon, GitStatusEntry},
     git_panel_settings::GitPanelSettings,
+    perfect_split_diff_view::PerfectSplitDiffView,
     remote_button::{render_publish_button, render_push_button},
+    split_diff_model::{DiffComputation, DiffOptions},
+    split_diff_settings::{SplitDiffSettings, SplitDiffViewMode},
 };
 use anyhow::Result;
 use buffer_diff::{BufferDiff, DiffHunkSecondaryStatus};
@@ -16,7 +19,7 @@ use editor::{
 use futures::StreamExt;
 use git::{
     Commit, StageAll, StageAndNext, ToggleStaged, UnstageAll, UnstageAndNext,
-    repository::{Branch, Upstream, UpstreamTracking, UpstreamTrackingStatus},
+    repository::{Branch, RepoPath, Upstream, UpstreamTracking, UpstreamTrackingStatus},
     status::FileStatus,
 };
 use gpui::{
@@ -48,7 +51,9 @@ actions!(
         /// Shows the diff between the working directory and the index.
         Diff,
         /// Adds files to the git staging area.
-        Add
+        Add,
+        /// Toggle between unified and split diff view.
+        ToggleSplitDiff,
     ]
 );
 
@@ -61,6 +66,8 @@ pub struct ProjectDiff {
     focus_handle: FocusHandle,
     update_needed: postage::watch::Sender<()>,
     pending_scroll: Option<PathKey>,
+    view_mode: SplitDiffViewMode,
+    split_diff_view: Option<Entity<PerfectSplitDiffView>>,
     _task: Task<Result<()>>,
     _subscription: Subscription,
 }
@@ -82,6 +89,15 @@ impl ProjectDiff {
         workspace.register_action(Self::deploy);
         workspace.register_action(|workspace, _: &Add, window, cx| {
             Self::deploy(workspace, &Diff, window, cx);
+        });
+        workspace.register_action(|workspace, _: &ToggleSplitDiff, window, cx| {
+            if let Some(active_item) = workspace.active_item(cx) {
+                if let Some(project_diff) = active_item.downcast::<ProjectDiff>() {
+                    project_diff.update(cx, |view, cx| {
+                        view.toggle_split_diff(&ToggleSplitDiff, window, cx);
+                    });
+                }
+            }
         });
         workspace::register_serializable_item::<ProjectDiff>(cx);
     }
@@ -218,6 +234,8 @@ impl ProjectDiff {
             editor,
             multibuffer,
             pending_scroll: None,
+            view_mode: SplitDiffViewMode::Unified,
+            split_diff_view: None,
             update_needed: send,
             _task: worker,
             _subscription: git_store_subscription,
@@ -276,6 +294,100 @@ impl ProjectDiff {
         } else {
             self.pending_scroll = Some(path_key);
         }
+    }
+
+    fn toggle_split_diff(
+        &mut self,
+        _: &ToggleSplitDiff,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        match self.view_mode {
+            SplitDiffViewMode::Unified => {
+                self.view_mode = SplitDiffViewMode::Split;
+                self.create_split_diff_view(window, cx);
+            }
+            SplitDiffViewMode::Split => {
+                self.view_mode = SplitDiffViewMode::Unified;
+                self.split_diff_view = None;
+            }
+        }
+        
+        cx.notify();
+    }
+
+    fn render_split_view(&self, _window: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
+        if let Some(split_diff_view) = &self.split_diff_view {
+            div().size_full().child(split_diff_view.clone())
+        } else {
+            // Fallback to unified view if split diff view is not available
+            div().size_full().child(self.editor.clone())
+        }
+    }
+
+    fn create_split_diff_view(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let active_path = self.active_path(cx).or_else(|| {
+            // Fallback: get the first file from the multibuffer
+            let multibuffer = self.multibuffer.read(cx);
+            let paths = multibuffer.paths().collect::<Vec<_>>();
+            if let Some(first_path) = paths.first() {
+                // Convert PathKey to ProjectPath
+                if let Some(git_repo) = self.git_store.read(cx).active_repository() {
+                    git_repo.read(cx).repo_path_to_project_path(&RepoPath::from(first_path.path().as_ref()), cx)
+                } else {
+                    None
+                }
+            } else {
+                None
+            }
+        });
+        
+        let Some(active_path) = active_path else {
+            return;
+        };
+        
+        let Some(workspace) = self.workspace.upgrade() else {
+            return;
+        };
+        
+        let Some(git_repo) = self.git_store.read(cx).active_repository() else {
+            return;
+        };
+        
+        let repo_path = git_repo.read(cx).project_path_to_repo_path(&active_path, cx);
+        let Some(repo_path) = repo_path else {
+            return;
+        };
+        
+        let project = self.project.clone();
+        let workspace_handle = workspace.downgrade();
+        
+        let settings = SplitDiffSettings::get_global(cx);
+        let options = DiffOptions::from_settings(&settings);
+        
+        let this = cx.weak_entity();
+        window.spawn(cx, async move |cx| {
+            let left_buffer = project
+                .update(cx, |project, cx| project.open_buffer(active_path.clone(), cx))?
+                .await?;
+            
+            let right_content = git_repo.update(cx, |repo, _cx| {
+                repo.get_committed_text(repo_path, _cx)
+            })?.await.unwrap_or_default();
+            
+            let right_buffer = cx.new(|cx| Buffer::local(&right_content, cx))?;
+            
+            let computation = DiffComputation::new(left_buffer, right_buffer, options);
+            let model = computation.compute(cx).await?;
+            
+            workspace_handle.update_in(cx, |_workspace, window, cx| {
+                this.update(cx, |this, cx| {
+                    let view = cx.new(|cx| PerfectSplitDiffView::new(project, workspace_handle.clone(), model, window, cx));
+                    this.split_diff_view = Some(view);
+                    cx.notify();
+                })
+            })
+        }).detach_and_log_err(cx);
     }
 
     fn button_states(&self, cx: &App) -> ButtonStates {
@@ -776,7 +888,12 @@ impl Render for ProjectDiff {
                         ),
                 )
             })
-            .when(!is_empty, |el| el.child(self.editor.clone()))
+            .when(!is_empty, |el| {
+                match self.view_mode {
+                    SplitDiffViewMode::Unified => el.child(self.editor.clone()),
+                    SplitDiffViewMode::Split => el.child(self.render_split_view(window, cx)),
+                }
+            })
     }
 }
 
@@ -1001,6 +1118,25 @@ impl Render for ProjectDiffToolbar {
                                 this.dispatch_action(&GoToHunk, window, cx)
                             })),
                     ),
+            )
+            .child(vertical_divider())
+            .child(
+                h_group_sm()
+                    .child({
+                        let button_text = match project_diff.read(cx).view_mode {
+                            SplitDiffViewMode::Unified => "Split View",
+                            SplitDiffViewMode::Split => "Unified View",
+                        };
+                        Button::new("split-diff", button_text)
+                            .tooltip(Tooltip::for_action_title_in(
+                                "Toggle Split Diff View",
+                                &ToggleSplitDiff,
+                                &focus_handle,
+                            ))
+                            .on_click(cx.listener(|this, _, window, cx| {
+                                this.dispatch_action(&ToggleSplitDiff, window, cx)
+                            }))
+                    })
             )
             .child(vertical_divider())
             .child(

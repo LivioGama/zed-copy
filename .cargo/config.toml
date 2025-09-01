@@ -1,6 +1,10 @@
 [build]
 # v0 mangling scheme provides more detailed backtraces around closures
 rustflags = ["-C", "symbol-mangling-version=v0", "--cfg", "tokio_unstable"]
+# Increase parallelism for faster builds
+# jobs = 0 is invalid - let Cargo use default (all available cores)
+# Enable incremental compilation by default
+incremental = true
 
 [alias]
 xtask = "run --package xtask --"
@@ -16,5 +20,25 @@ rustflags = [
     "target-feature=+crt-static", # This fixes the linking issue when compiling livekit on Windows
 ]
 
+[target.x86_64-apple-darwin]
+# Use faster linker and optimize for build speed on macOS x64
+rustflags = [
+    "-C", "link-arg=-Wl,-dead_strip_dylibs", # Remove unused dynamic libraries
+    "-C", "link-arg=-Wl,-dead_strip",        # Remove unused code
+]
+
+[target.aarch64-apple-darwin]
+# Use faster linker and optimize for build speed on macOS ARM64
+rustflags = [
+    "-C", "link-arg=-Wl,-dead_strip_dylibs", # Remove unused dynamic libraries
+    "-C", "link-arg=-Wl,-dead_strip",        # Remove unused code
+]
+
 [env]
 MACOSX_DEPLOYMENT_TARGET = "10.15.7"
+CARGO_WORKSPACE_DIR = { value = "", relative = true }
+# Enable sccache for faster compilation (install with: brew install sccache)
+RUSTC_WRAPPER = "sccache"
+# Use faster linker on macOS
+CARGO_TARGET_X86_64_APPLE_DARWIN_LINKER = "clang"
+CARGO_TARGET_AARCH64_APPLE_DARWIN_LINKER = "clang"

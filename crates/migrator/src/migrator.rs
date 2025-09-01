@@ -1,3 +1,5 @@
+
+
 //! ## When to create a migration and why?
 //! A migration is necessary when keymap actions or settings are renamed or transformed (e.g., from an array to a string, a string to an array, a boolean to an enum, etc.).
 //!

@@ -4846,6 +4846,43 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "56254986775e3233ffa9c4d7d3faaf6d36a2c09d30b20687e9f88bc8bafc16c8"
 
 [[package]]
+name = "diff_viewer"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "buffer_diff",
+ "chrono",
+ "collections",
+ "ctor",
+ "dissimilar",
+ "editor",
+ "futures 0.3.31",
+ "git",
+ "gpui",
+ "imara-diff",
+ "language",
+ "log",
+ "multi_buffer",
+ "parking_lot",
+ "project",
+ "rand 0.9.1",
+ "regex",
+ "serde",
+ "serde_json",
+ "settings",
+ "similar",
+ "smallvec",
+ "text",
+ "theme",
+ "ui",
+ "unindent",
+ "util",
+ "workspace",
+ "workspace-hack",
+ "zlog",
+]
+
+[[package]]
 name = "diffy"
 version = "0.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4954,6 +4991,12 @@ dependencies = [
  "quote",
  "syn 2.0.101",
 ]
+
+[[package]]
+name = "dissimilar"
+version = "1.0.10"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8975ffdaa0ef3661bfe02dbdcc06c9f829dfafe6a3c474de366a8d5e44276921"
 
 [[package]]
 name = "dlib"
@@ -6871,6 +6914,7 @@ dependencies = [
  "component",
  "ctor",
  "db",
+ "diff_viewer",
  "editor",
  "futures 0.3.31",
  "fuzzy",
@@ -6897,6 +6941,7 @@ dependencies = [
  "settings",
  "strum 0.27.1",
  "telemetry",
+ "text",
  "theme",
  "time",
  "time_format",
@@ -14694,6 +14739,12 @@ name = "simdutf8"
 version = "0.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e3a9fe34e3e7a50316060351f37187a3f546bce95496156754b601a5fa71b76e"
+
+[[package]]
+name = "similar"
+version = "2.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bbbb5d9659141646ae647b42fe094daf6c6192d1620870b449d9557f748b2daa"
 
 [[package]]
 name = "simple_asn1"

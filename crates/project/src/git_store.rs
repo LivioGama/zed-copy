@@ -3330,6 +3330,25 @@ impl Repository {
         });
     }
 
+    /// Returns the committed text for the given repository path.
+    /// Returns None if the path doesn't exist in the repository or if it's not a local repository.
+    pub fn get_committed_text(
+        &mut self,
+        repo_path: RepoPath,
+        cx: &mut Context<Self>,
+    ) -> Task<Option<String>> {
+        let rx = self.send_job(None, move |state, _| async move {
+            match state {
+                RepositoryState::Local { backend, .. } => {
+                    backend.load_committed_text(repo_path).await
+                }
+                RepositoryState::Remote { .. } => None,
+            }
+        });
+
+        cx.spawn(async move |_, _: &mut AsyncApp| rx.await.ok().flatten())
+    }
+
     pub fn cached_status(&self) -> impl '_ + Iterator<Item = StatusEntry> {
         self.snapshot.status()
     }

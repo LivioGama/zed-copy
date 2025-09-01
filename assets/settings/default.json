@@ -1260,6 +1260,44 @@
     //    "hunk_style": "unstaged_hollow"
     "hunk_style": "staged_hollow"
   },
+  // Configuration for the split diff view.
+  "git_split_diff": {
+    // Default view mode for split diff.
+    //
+    // Choices: split, unified
+    // Default: split
+    "default_view": "split",
+    // Number of context lines to show around changes.
+    //
+    // Default: 3
+    "context_lines": 3,
+    // How to handle whitespace in diffs.
+    //
+    // Choices: none, eol, all
+    // Default: none
+    "ignore_whitespace": "none",
+    // Whether to synchronize scrolling between left and right panes.
+    //
+    // Default: true
+    "sync_scroll": true,
+    // How to highlight intra-line changes.
+    //
+    // Choices: off, word, char
+    // Default: word
+    "intraline": "word",
+    // Whether to wrap long lines.
+    //
+    // Default: false
+    "word_wrap": false,
+    // Default width of the split diff view in pixels.
+    //
+    // Default: 800
+    "default_width": 800,
+    // Default height of the split diff view in pixels.
+    //
+    // Default: 600
+    "default_height": 600
+  },
   // The list of custom Git hosting providers.
   "git_hosting_providers": [
     // {
