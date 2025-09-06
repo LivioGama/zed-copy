@@ -1,4 +1,4 @@
-use std::any::Any;
+use std::{any::Any, path::PathBuf};
 
 use ::settings::Settings;
 use command_palette_hooks::CommandPaletteFilter;
@@ -20,7 +20,7 @@ use ui::prelude::*;
 use workspace::{ModalView, Workspace};
 use zed_actions;
 
-use crate::{git_panel::GitPanel, text_diff_view::TextDiffView};
+use crate::{git_panel::GitPanel, text_diff_view::TextDiffView, jetbrains_diff_viewer::JetBrainsDiffViewer};
 
 mod askpass_modal;
 pub mod branch_picker;
@@ -37,12 +37,28 @@ pub mod project_diff;
 pub(crate) mod remote_output;
 pub mod repository_selector;
 pub mod text_diff_view;
+pub mod jetbrains_diff_viewer;
 
 actions!(
     git,
     [
         /// Resets the git onboarding state to show the tutorial again.
-        ResetOnboarding
+        ResetOnboarding,
+        /// Opens a JetBrains-style diff viewer for two files
+        OpenJetBrainsDiff {
+            old_path: PathBuf,
+            new_path: PathBuf,
+        },
+        /// Navigate to next diff hunk (F7)
+        NextDiffHunk,
+        /// Navigate to previous diff hunk (Shift+F7)
+        PreviousDiffHunk,
+        /// Apply current diff hunk (Ctrl+Enter)
+        ApplyDiffHunk,
+        /// Revert current diff hunk (Ctrl+Backspace)
+        RevertDiffHunk,
+        /// Stage current diff hunk (Ctrl+Shift+S)
+        StageDiffHunk
     ]
 );
 
@@ -155,6 +171,16 @@ pub fn init(cx: &mut App) {
                 // ResetOnboarding.type_id(),
             ]);
         });
+        
+        // Register JetBrains diff viewer commands in command palette
+        CommandPaletteFilter::update_global(cx, |filter, _cx| {
+            filter.add_command("Open JetBrains Diff", "Open a JetBrains-style diff viewer for two files", "jetbrains diff");
+            filter.add_command("Next Diff Hunk", "Navigate to the next diff hunk", "diff next");
+            filter.add_command("Previous Diff Hunk", "Navigate to the previous diff hunk", "diff prev");
+            filter.add_command("Apply Diff Hunk", "Apply the current diff hunk", "diff apply");
+            filter.add_command("Revert Diff Hunk", "Revert the current diff hunk", "diff revert");
+            filter.add_command("Stage Diff Hunk", "Stage the current diff hunk", "diff stage");
+        });
         workspace.register_action(
             move |workspace, _: &zed_actions::OpenGitIntegrationOnboarding, window, cx| {
                 GitOnboardingModal::toggle(workspace, window, cx)
@@ -189,6 +215,98 @@ pub fn init(cx: &mut App) {
                 if let Some(task) = TextDiffView::open(action, workspace, window, cx) {
                     task.detach();
                 };
+            },
+        );
+        workspace.register_action(
+            |workspace, action: &OpenJetBrainsDiff, window, cx| {
+                let task = JetBrainsDiffViewer::open(
+                    action.old_path.clone(),
+                    action.new_path.clone(),
+                    workspace,
+                    window,
+                    cx,
+                );
+                task.detach();
+            },
+        );
+        workspace.register_action(
+            |workspace, _action: &NextDiffHunk, window, cx| {
+                // Find active JetBrains diff viewer and navigate to next hunk
+                if let Some(pane) = workspace.active_pane(cx) {
+                    pane.update(cx, |pane, cx| {
+                        if let Some(item) = pane.active_item(cx) {
+                            if let Some(diff_viewer) = item.downcast::<JetBrainsDiffViewer>() {
+                                diff_viewer.update(cx, |viewer, cx| {
+                                    viewer.navigate_to_next_hunk(cx);
+                                });
+                            }
+                        }
+                    });
+                }
+            },
+        );
+        workspace.register_action(
+            |workspace, _action: &PreviousDiffHunk, window, cx| {
+                // Find active JetBrains diff viewer and navigate to previous hunk
+                if let Some(pane) = workspace.active_pane(cx) {
+                    pane.update(cx, |pane, cx| {
+                        if let Some(item) = pane.active_item(cx) {
+                            if let Some(diff_viewer) = item.downcast::<JetBrainsDiffViewer>() {
+                                diff_viewer.update(cx, |viewer, cx| {
+                                    viewer.navigate_to_previous_hunk(cx);
+                                });
+                            }
+                        }
+                    });
+                }
+            },
+        );
+        workspace.register_action(
+            |workspace, _action: &ApplyDiffHunk, window, cx| {
+                // Find active JetBrains diff viewer and apply current hunk
+                if let Some(pane) = workspace.active_pane(cx) {
+                    pane.update(cx, |pane, cx| {
+                        if let Some(item) = pane.active_item(cx) {
+                            if let Some(diff_viewer) = item.downcast::<JetBrainsDiffViewer>() {
+                                diff_viewer.update(cx, |viewer, cx| {
+                                    viewer.apply_current_hunk(cx);
+                                });
+                            }
+                        }
+                    });
+                }
+            },
+        );
+        workspace.register_action(
+            |workspace, _action: &RevertDiffHunk, window, cx| {
+                // Find active JetBrains diff viewer and revert current hunk
+                if let Some(pane) = workspace.active_pane(cx) {
+                    pane.update(cx, |pane, cx| {
+                        if let Some(item) = pane.active_item(cx) {
+                            if let Some(diff_viewer) = item.downcast::<JetBrainsDiffViewer>() {
+                                diff_viewer.update(cx, |viewer, cx| {
+                                    viewer.revert_current_hunk(cx);
+                                });
+                            }
+                        }
+                    });
+                }
+            },
+        );
+        workspace.register_action(
+            |workspace, _action: &StageDiffHunk, window, cx| {
+                // Find active JetBrains diff viewer and stage current hunk
+                if let Some(pane) = workspace.active_pane(cx) {
+                    pane.update(cx, |pane, cx| {
+                        if let Some(item) = pane.active_item(cx) {
+                            if let Some(diff_viewer) = item.downcast::<JetBrainsDiffViewer>() {
+                                diff_viewer.update(cx, |viewer, cx| {
+                                    viewer.stage_current_hunk(cx);
+                                });
+                            }
+                        }
+                    });
+                }
             },
         );
     })
