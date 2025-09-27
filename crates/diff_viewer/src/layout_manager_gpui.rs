@@ -45,6 +45,11 @@ impl LayoutManager {
         pane_width: f32,
         imara_analysis: &crate::ImaraDiffAnalysis,
         available_bounds: Bounds<gpui::Pixels>,
+        left_scroll_y: f32,
+        right_scroll_y: f32,
+        left_line_height: f32,
+        right_line_height: f32,
+        header_height: f32,
     ) {
         // Calculate layout dimensions
         let gutter_x_start = pane_width;
@@ -58,6 +63,11 @@ impl LayoutManager {
             pane_width,
             imara_analysis,
             available_bounds,
+            left_scroll_y,
+            right_scroll_y,
+            left_line_height,
+            right_line_height,
+            header_height,
         );
     }
 
@@ -69,10 +79,13 @@ impl LayoutManager {
         _pane_width: f32,
         imara_analysis: &crate::ImaraDiffAnalysis,
         available_bounds: Bounds<gpui::Pixels>,
+        left_scroll_y: f32,
+        right_scroll_y: f32,
+        left_line_height: f32,
+        right_line_height: f32,
+        header_height: f32,
     ) {
-        // Use approximate positioning when DisplayLine data isn't available
-        // This provides basic connector functionality that matches the original egui version
-        let line_height = self.config.line_height;
+        // Use actual line heights from editors for precise positioning
         let gutter_width = available_bounds.size.width.0;
 
         // Process imara blocks to create connectors with approximate positions
@@ -84,14 +97,16 @@ impl LayoutManager {
                 let right_start = imara_block.right_range.start;
                 let right_end = imara_block.right_range.end.saturating_sub(1);
 
-                // Convert line numbers to approximate pixel positions
-                let left_y_start = available_bounds.origin.y + px(left_start as f32 * line_height);
-                let left_y_end =
-                    available_bounds.origin.y + px((left_end + 1) as f32 * line_height);
-                let right_y_start =
-                    available_bounds.origin.y + px(right_start as f32 * line_height);
-                let right_y_end =
-                    available_bounds.origin.y + px((right_end + 1) as f32 * line_height);
+                // Convert line numbers to pixel positions using actual line heights, accounting for scroll and header
+                let left_y_start = available_bounds.origin.y
+                    + px(header_height + (left_start as f32 - left_scroll_y) * left_line_height);
+                let left_y_end = available_bounds.origin.y
+                    + px(header_height + ((left_end + 1) as f32 - left_scroll_y) * left_line_height);
+                let right_y_start = available_bounds.origin.y
+                    + px(header_height + (right_start as f32 - right_scroll_y) * right_line_height);
+                let right_y_end = available_bounds.origin.y
+                    + px(header_height
+                        + ((right_end + 1) as f32 - right_scroll_y) * right_line_height);
 
                 // Connector X coordinates (left edge to right edge of gutter)
                 let x1 = available_bounds.origin.x; // Left edge of gutter
@@ -154,40 +169,61 @@ impl LayoutManager {
         right_y_end: gpui::Pixels,
         color: Hsla,
     ) {
-        // Create bezier curves connecting the blocks
-        let control_distance = px(30.0);
+        use gpui::{point, px};
 
-        // Top curve
-        let start_top = point(x1, left_y_start);
-        let end_top = point(x2, right_y_start);
-        let control1_top = point(x1 + control_distance, left_y_start);
-        let control2_top = point(x2 - control_distance, right_y_start);
+        let segments = 32; // High resolution for perfectly smooth curves
+        let mut top_points = Vec::with_capacity(segments + 1);
+        let mut bottom_points = Vec::with_capacity(segments + 1);
 
-        // Bottom curve
-        let start_bottom = point(x1, left_y_end);
-        let end_bottom = point(x2, right_y_end);
-        let control1_bottom = point(x1 + control_distance, left_y_end);
-        let control2_bottom = point(x2 - control_distance, right_y_end);
+        let control_point_offset = (x2 - x1) * 0.35; // Optimal S-curve control point distance
 
-        // Create path for the filled connector region using PathBuilder
-        let mut path_builder = PathBuilder::fill();
-        path_builder.move_to(start_top);
+        // Generate high-resolution curve points for top and bottom boundaries
+        for i in 0..=segments {
+            let t = i as f32 / segments as f32;
 
-        // Top bezier curve
-        path_builder.curve_to(end_top, control2_top);
+            // Top curve: start to end points with precise control point positioning
+            let top_start = point(x1, left_y_start);
+            let top_end = point(x2, right_y_start);
+            let top_ctrl1 = point(x1 + control_point_offset, left_y_start);
+            let top_ctrl2 = point(x2 - control_point_offset, right_y_start);
+            top_points.push(self.cubic_bezier(top_start, top_ctrl1, top_ctrl2, top_end, t));
 
-        // Right side
-        path_builder.line_to(end_bottom);
+            // Bottom curve: parallel calculation for connector band creation
+            let bottom_start = point(x1, left_y_end);
+            let bottom_end = point(x2, right_y_end);
+            let bottom_ctrl1 = point(x1 + control_point_offset, left_y_end);
+            let bottom_ctrl2 = point(x2 - control_point_offset, right_y_end);
+            bottom_points.push(self.cubic_bezier(
+                bottom_start,
+                bottom_ctrl1,
+                bottom_ctrl2,
+                bottom_end,
+                t,
+            ));
+        }
 
-        // Bottom bezier curve (reverse direction)
-        path_builder.curve_to(start_bottom, control1_bottom);
+        // Create filled shape using PathBuilder with line segments approximating the bezier curves
+        let mut path_builder = gpui::PathBuilder::fill();
+        if !top_points.is_empty() {
+            path_builder.move_to(top_points[0]);
 
-        // Left side (close the shape)
-        path_builder.line_to(start_top);
+            // Add top curve points
+            for point in top_points.iter().skip(1) {
+                path_builder.line_to(*point);
+            }
 
-        // Fill the connector region
-        if let Ok(path) = path_builder.build() {
-            window.paint_path(path, color);
+            // Add bottom curve points in reverse (to close the shape)
+            for point in bottom_points.iter().rev() {
+                path_builder.line_to(*point);
+            }
+
+            // Close the shape
+            path_builder.line_to(top_points[0]);
+
+            // Fill the connector region
+            if let Ok(path) = path_builder.build() {
+                window.paint_path(path, color);
+            }
         }
     }
 
@@ -210,6 +246,27 @@ impl LayoutManager {
 
     pub fn get_gutter_width(&self) -> f32 {
         self.config.gutter_width
+    }
+
+    fn cubic_bezier(
+        &self,
+        p0: gpui::Point<gpui::Pixels>,
+        p1: gpui::Point<gpui::Pixels>,
+        p2: gpui::Point<gpui::Pixels>,
+        p3: gpui::Point<gpui::Pixels>,
+        t: f32,
+    ) -> gpui::Point<gpui::Pixels> {
+        let u = 1.0 - t;
+        let u2 = u * u; // Pre-calculate u²
+        let u3 = u2 * u; // Pre-calculate u³
+        let t2 = t * t; // Pre-calculate t²
+        let t3 = t2 * t; // Pre-calculate t³
+
+        // Optimized cubic bezier using pre-calculated powers
+        point(
+            gpui::Pixels(u3 * p0.x.0 + 3.0 * u2 * t * p1.x.0 + 3.0 * u * t2 * p2.x.0 + t3 * p3.x.0),
+            gpui::Pixels(u3 * p0.y.0 + 3.0 * u2 * t * p1.y.0 + 3.0 * u * t2 * p2.y.0 + t3 * p3.y.0),
+        )
     }
 }
 

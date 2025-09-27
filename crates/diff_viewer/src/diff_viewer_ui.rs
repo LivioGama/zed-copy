@@ -505,11 +505,19 @@ impl DiffViewer {
     }
 
     /// Render the connector gutter with complete connector system
-    fn render_connector_gutter(&self, cx: &Context<Self>) -> impl IntoElement {
+    fn render_connector_gutter(
+        &self,
+        left_scroll_y: f32,
+        right_scroll_y: f32,
+        left_line_height: f32,
+        right_line_height: f32,
+    ) -> impl IntoElement {
         let colors = self.theme.colors();
         let gutter_width = self.connector_renderer.gutter_width;
         let blocks = self.imara_analysis.blocks.clone();
         let layout_manager = self.layout_manager.clone();
+        // Estimate header height: padding (8px top/bottom) + border (1px) + label height (~16px) ≈ 33px
+        let header_height = 33.0;
 
         div()
             .w(px(gutter_width))
@@ -526,6 +534,11 @@ impl DiffViewer {
                         bounds,
                         window,
                         &layout_manager,
+                        left_scroll_y,
+                        right_scroll_y,
+                        left_line_height,
+                        right_line_height,
+                        header_height,
                     );
                 },
             ))
@@ -537,6 +550,11 @@ impl DiffViewer {
         bounds: Bounds<Pixels>,
         window: &mut Window,
         layout_manager: &crate::layout_manager_gpui::LayoutManager,
+        left_scroll_y: f32,
+        right_scroll_y: f32,
+        left_line_height: f32,
+        right_line_height: f32,
+        header_height: f32,
     ) {
         // Create dummy DisplayLine arrays for LayoutManager (simplified approach)
         // In a full implementation, these would come from actual editor content
@@ -554,6 +572,11 @@ impl DiffViewer {
                 blocks: blocks.to_vec(),
             },
             bounds,
+            left_scroll_y,
+            right_scroll_y,
+            left_line_height,
+            right_line_height,
+            header_height,
         );
     }
 
@@ -858,10 +881,27 @@ impl DiffViewer {
 }
 
 impl Render for DiffViewer {
-    fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        // Get scroll positions from editors
+        let left_scroll_y = self.left_editor.update(cx, |editor, cx| {
+            editor.snapshot(window, cx).scroll_position().y
+        });
+        let right_scroll_y = self.right_editor.update(cx, |editor, cx| {
+            editor.snapshot(window, cx).scroll_position().y
+        });
+
+        // Use fixed line height for accurate positioning
+        let left_line_height = 20.0;
+        let right_line_height = 20.0;
+
         let left_editor = self.left_editor.clone();
         let right_editor = self.right_editor.clone();
-        let connector_gutter = self.render_connector_gutter(&*cx);
+        let connector_gutter = self.render_connector_gutter(
+            left_scroll_y,
+            right_scroll_y,
+            left_line_height,
+            right_line_height,
+        );
 
         // Create toolbar with immutable borrow
         let toolbar = {
