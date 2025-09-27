@@ -1,11 +1,11 @@
 // GPUI-based connector rendering for diff viewer
 // Adapted from the perfect implementation's connector rendering
 
-use gpui::{
-    AnyElement, Background, Bounds, Hsla, IntoElement, ParentElement, PathBuilder, 
-    Pixels, Point, Styled, Window, canvas, div, point, px, transparent_black, PaintQuad, hsla
-};
 use crate::advanced_diff::{ChangeType, MappingSegment};
+use gpui::{
+    AnyElement, Background, Bounds, Hsla, IntoElement, PaintQuad, ParentElement, PathBuilder,
+    Pixels, Point, Styled, Window, canvas, div, hsla, point, px, transparent_black,
+};
 
 #[derive(Debug, Clone)]
 pub struct ConnectorPoint {
@@ -53,7 +53,12 @@ impl BezierConnector {
         self.is_hovered = is_hovered;
         if is_hovered {
             // Increase alpha for hover effect
-            self.color = hsla(self.color.h, self.color.s, self.color.l, (self.color.a + 0.2).min(1.0));
+            self.color = hsla(
+                self.color.h,
+                self.color.s,
+                self.color.l,
+                (self.color.a + 0.2).min(1.0),
+            );
         }
         self
     }
@@ -73,7 +78,7 @@ impl ConnectorRenderer {
                 for connector in &connectors {
                     Self::render_single_connector(&connector, bounds, window);
                 }
-            }
+            },
         )
         .w(width)
         .h(height)
@@ -126,9 +131,12 @@ impl ConnectorRenderer {
 
         // Calculate height based on the change block size
         let height = px(20.0); // Standard line height
-        
+
         let quad_bounds = Bounds {
-            origin: Point { x: start_x, y: start_y },
+            origin: Point {
+                x: start_x,
+                y: start_y,
+            },
             size: gpui::Size {
                 width: end_x - start_x,
                 height: height,
@@ -181,8 +189,8 @@ impl ConnectorRenderer {
 
         for (id, segment) in mapping_segments.iter().enumerate() {
             // Find corresponding line bounds
-        let left_index = (segment.left_start / 20.0) as usize; // Assuming 20px line height
-        let right_index = (segment.right_start / 20.0) as usize;
+            let left_index = (segment.left_start / 20.0) as usize; // Assuming 20px line height
+            let right_index = (segment.right_start / 20.0) as usize;
 
             if let (Some(left_bounds), Some(right_bounds)) = (
                 left_line_bounds.get(left_index),
@@ -202,7 +210,7 @@ impl ConnectorRenderer {
                     is_start: false,
                 };
 
-                // Determine change type based on y-position differences  
+                // Determine change type based on y-position differences
                 let left_center_y = left_bounds.origin.y + left_bounds.size.height / 2.0;
                 let right_center_y = right_bounds.origin.y + right_bounds.size.height / 2.0;
                 let change_type = if (left_center_y - right_center_y).abs() > px(5.0) {
@@ -223,4 +231,3 @@ impl ConnectorRenderer {
         connectors
     }
 }
-

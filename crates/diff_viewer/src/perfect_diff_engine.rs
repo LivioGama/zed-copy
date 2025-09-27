@@ -2,7 +2,7 @@
 // Advanced diff algorithms using both similar and imara-diff libraries
 
 use anyhow::Result;
-use imara_diff::Algorithm;
+use imara_diff::{Algorithm, Diff, InternedInput};
 use similar::{ChangeTag, TextDiff};
 use std::ops::Range;
 
@@ -251,31 +251,49 @@ fn calculate_semantic_similarity(old_lines: &[&str], new_lines: &[&str]) -> f32 
 pub fn compute_imara_diff(
     old_content: &str,
     new_content: &str,
-    _config: &ImaraConfig,
+    config: &ImaraConfig,
 ) -> ImaraDiffAnalysis {
-    // Simplified implementation using similar crate for now
-    // TODO: Integrate proper imara-diff when API is stable
-    let diff = similar::TextDiff::from_lines(old_content, new_content);
+    let old_lines: Vec<&str> = old_content.lines().collect();
+    let new_lines: Vec<&str> = new_content.lines().collect();
+
+    let input = InternedInput::new(old_content, new_content);
+    let mut diff = Diff::compute(config.algorithm, &input);
+    diff.postprocess_lines(&input);
+
     let mut blocks = Vec::new();
-    
-    for group in diff.grouped_ops(3) {
-        for op in group {
-            let old_range = op.old_range();
-            let new_range = op.new_range();
 
-            let operation = if old_range.is_empty() {
-                ImaraBlockOperation::Insert
-            } else if new_range.is_empty() {
-                ImaraBlockOperation::Delete
-            } else {
-                ImaraBlockOperation::Modify
-            };
+    // Process hunks to build blocks and line mappings
+    for hunk in diff.hunks() {
+        let old_range = hunk.before.start as usize..hunk.before.end as usize;
+        let new_range = hunk.after.start as usize..hunk.after.end as usize;
 
-            let block = ImaraDiffBlock::new(old_range.clone(), new_range.clone(), operation)
-                .with_similarity(75.0); // Placeholder similarity
+        let operation = if old_range.is_empty() {
+            ImaraBlockOperation::Insert
+        } else if new_range.is_empty() {
+            ImaraBlockOperation::Delete
+        } else {
+            ImaraBlockOperation::Modify
+        };
 
-            blocks.push(block);
-        }
+        // Calculate semantic similarity for the hunk
+        let old_hunk_lines: Vec<&str> = if old_range.is_empty() {
+            Vec::new()
+        } else {
+            old_lines[old_range.clone()].to_vec()
+        };
+
+        let new_hunk_lines: Vec<&str> = if new_range.is_empty() {
+            Vec::new()
+        } else {
+            new_lines[new_range.clone()].to_vec()
+        };
+
+        let similarity = calculate_semantic_similarity(&old_hunk_lines, &new_hunk_lines);
+
+        let block = ImaraDiffBlock::new(old_range.clone(), new_range.clone(), operation)
+            .with_similarity(similarity);
+
+        blocks.push(block);
     }
 
     ImaraDiffAnalysis { blocks }
@@ -285,106 +303,157 @@ pub fn compute_imara_diff_default(old_content: &str, new_content: &str) -> Imara
     compute_imara_diff(old_content, new_content, &ImaraConfig::default())
 }
 
-/// Perfect diff generator that combines similar and imara-diff for best results
+/// Perfect diff generator using Imara diff analysis for accurate line alignment
 pub fn generate_perfect_diff_view(old_text: &str, new_text: &str) -> DiffView {
+    let imara_analysis = compute_imara_diff_default(old_text, new_text);
+    let old_lines: Vec<&str> = old_text.lines().collect();
+    let new_lines: Vec<&str> = new_text.lines().collect();
+
     let mut left_pane = Vec::new();
     let mut right_pane = Vec::new();
     let mut change_blocks = Vec::new();
-    let diff = TextDiff::from_lines(old_text, new_text);
 
-    for op in diff.ops() {
-        match op.tag() {
-            similar::DiffTag::Equal => {
-                for line in diff.iter_changes(&op) {
-                    if line.tag() == similar::ChangeTag::Equal {
-                        left_pane.push(Line {
-                            content: line.value().to_string(),
-                            state: LineState::Unchanged,
-                        });
-                        right_pane.push(Line {
-                            content: line.value().to_string(),
-                            state: LineState::Unchanged,
-                        });
-                    }
-                }
-            }
-            similar::DiffTag::Delete => {
-                let start_idx = left_pane.len();
-                let mut len = 0;
-                for line in diff.iter_changes(&op) {
-                    if line.tag() == similar::ChangeTag::Delete {
-                        left_pane.push(Line {
-                            content: line.value().to_string(),
-                            state: LineState::Deleted,
-                        });
-                        right_pane.push(Line {
-                            content: "".to_string(),
-                            state: LineState::Placeholder,
-                        });
-                        len += 1;
-                    }
-                }
-                change_blocks.push(NewChangeBlock {
-                    change_type: ChangeType::Deletion,
-                    left_start_idx: start_idx,
-                    left_len: len,
-                    right_start_idx: start_idx,
-                    right_len: len,
+    let mut old_idx = 0;
+    let mut new_idx = 0;
+
+    for block in &imara_analysis.blocks {
+        // Add unchanged lines before this block
+        while old_idx < block.left_range.start && new_idx < block.right_range.start {
+            if old_idx < old_lines.len() && new_idx < new_lines.len() {
+                left_pane.push(Line {
+                    content: old_lines[old_idx].to_string(),
+                    state: LineState::Unchanged,
                 });
-            }
-            similar::DiffTag::Insert => {
-                let start_idx = left_pane.len();
-                let mut len = 0;
-                for line in diff.iter_changes(&op) {
-                    if line.tag() == similar::ChangeTag::Insert {
-                        left_pane.push(Line {
-                            content: "".to_string(),
-                            state: LineState::Placeholder,
-                        });
-                        right_pane.push(Line {
-                            content: line.value().to_string(),
-                            state: LineState::Added,
-                        });
-                        len += 1;
-                    }
-                }
-                change_blocks.push(NewChangeBlock {
-                    change_type: ChangeType::Addition,
-                    left_start_idx: start_idx,
-                    left_len: len,
-                    right_start_idx: start_idx,
-                    right_len: len,
+                right_pane.push(Line {
+                    content: new_lines[new_idx].to_string(),
+                    state: LineState::Unchanged,
                 });
-            }
-            similar::DiffTag::Replace => {
-                // Handle replace operations as separate delete + insert
-                for line in diff.iter_changes(&op) {
-                    match line.tag() {
-                        similar::ChangeTag::Delete => {
-                            left_pane.push(Line {
-                                content: line.value().to_string(),
-                                state: LineState::Deleted,
-                            });
-                            right_pane.push(Line {
-                                content: "".to_string(),
-                                state: LineState::Placeholder,
-                            });
-                        }
-                        similar::ChangeTag::Insert => {
-                            left_pane.push(Line {
-                                content: "".to_string(),
-                                state: LineState::Placeholder,
-                            });
-                            right_pane.push(Line {
-                                content: line.value().to_string(),
-                                state: LineState::Added,
-                            });
-                        }
-                        _ => {}
-                    }
-                }
+                old_idx += 1;
+                new_idx += 1;
+            } else {
+                break;
             }
         }
+
+        // Handle the changed block
+        let block_start_idx = left_pane.len();
+        let left_len = block.left_range.len();
+        let right_len = block.right_range.len();
+
+        // Add changed lines from left side (deletions/modifications)
+        for i in 0..left_len {
+            let line_idx = block.left_range.start + i;
+            if line_idx < old_lines.len() {
+                let state = match block.operation {
+                    ImaraBlockOperation::Delete => LineState::Deleted,
+                    ImaraBlockOperation::Modify => {
+                        // For modifications, we could add word diffs here
+                        LineState::Modified { word_diffs: vec![] }
+                    }
+                    _ => LineState::Unchanged,
+                };
+                left_pane.push(Line {
+                    content: old_lines[line_idx].to_string(),
+                    state,
+                });
+            }
+        }
+
+        // Add changed lines from right side (insertions/modifications)
+        for i in 0..right_len {
+            let line_idx = block.right_range.start + i;
+            if line_idx < new_lines.len() {
+                let state = match block.operation {
+                    ImaraBlockOperation::Insert => LineState::Added,
+                    ImaraBlockOperation::Modify => {
+                        // For modifications, we could add word diffs here
+                        LineState::Modified { word_diffs: vec![] }
+                    }
+                    _ => LineState::Unchanged,
+                };
+                right_pane.push(Line {
+                    content: new_lines[line_idx].to_string(),
+                    state,
+                });
+            }
+        }
+
+        // Add placeholders to align the panes
+        let max_len = left_len.max(right_len);
+        if left_len < max_len {
+            for _ in left_len..max_len {
+                left_pane.push(Line {
+                    content: "".to_string(),
+                    state: LineState::Placeholder,
+                });
+            }
+        }
+        if right_len < max_len {
+            for _ in right_len..max_len {
+                right_pane.push(Line {
+                    content: "".to_string(),
+                    state: LineState::Placeholder,
+                });
+            }
+        }
+
+        // Create change block
+        let change_type = match block.operation {
+            ImaraBlockOperation::Insert => ChangeType::Addition,
+            ImaraBlockOperation::Delete => ChangeType::Deletion,
+            ImaraBlockOperation::Modify => ChangeType::Modification,
+        };
+
+        change_blocks.push(NewChangeBlock {
+            change_type,
+            left_start_idx: block_start_idx,
+            left_len: max_len,
+            right_start_idx: block_start_idx,
+            right_len: max_len,
+        });
+
+        // Update indices
+        old_idx = block.left_range.end;
+        new_idx = block.right_range.end;
+    }
+
+    // Add remaining unchanged lines
+    while old_idx < old_lines.len() && new_idx < new_lines.len() {
+        left_pane.push(Line {
+            content: old_lines[old_idx].to_string(),
+            state: LineState::Unchanged,
+        });
+        right_pane.push(Line {
+            content: new_lines[new_idx].to_string(),
+            state: LineState::Unchanged,
+        });
+        old_idx += 1;
+        new_idx += 1;
+    }
+
+    // Handle any remaining lines (shouldn't happen with proper diff, but safety check)
+    while old_idx < old_lines.len() {
+        left_pane.push(Line {
+            content: old_lines[old_idx].to_string(),
+            state: LineState::Unchanged,
+        });
+        right_pane.push(Line {
+            content: "".to_string(),
+            state: LineState::Placeholder,
+        });
+        old_idx += 1;
+    }
+
+    while new_idx < new_lines.len() {
+        left_pane.push(Line {
+            content: "".to_string(),
+            state: LineState::Placeholder,
+        });
+        right_pane.push(Line {
+            content: new_lines[new_idx].to_string(),
+            state: LineState::Unchanged,
+        });
+        new_idx += 1;
     }
 
     DiffView {

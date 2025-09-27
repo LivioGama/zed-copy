@@ -1,2 +1,54 @@
-use std::path::PathBuf;\nuse gpui::{App, AppContext, Context, WindowBounds, WindowOptions, size, px};\nuse project::Project;\nuse workspace::{AppState, Workspace};\nuse diff_viewer::DiffViewer;\n\nfn main() {\n    env_logger::init();\n    \n    App::new().run(move |cx| {\n        let bounds = gpui::Bounds::centered(None, size(px(1200.0), px(800.0)), cx);\n        \n        cx.open_window(\n            WindowOptions {\n                window_bounds: Some(WindowBounds::Windowed(bounds)),\n                titlebar: Some(gpui::TitlebarOptions {\n                    title: Some(\"Diff Viewer Demo\".into()),\n                    ..Default::default()\n                }),\n                ..Default::default()\n            },\n            move |window, cx| {\n                // Create a simple project for the demo\n                let project = cx.new(|cx| Project::local(\n                    client::Client::production(cx),\n                    node_runtime::FakeNodeRuntime::new(),\n                    cx,\n                ));\n                \n                // Create workspace entity\n                let workspace = cx.new(|cx| {\n                    let mut workspace = Workspace::new(project.clone(), window, cx);\n                    workspace\n                });\n                \n                // Sample file paths for demo - you can change these to actual files\n                let left_path = Some(PathBuf::from(\"README.md\"));\n                let right_path = Some(PathBuf::from(\"Cargo.toml\"));\n                \n                // Create the diff viewer\n                cx.new(|cx| {\n                    DiffViewer::new(\n                        left_path,\n                        right_path,\n                        project,\n                        workspace.downgrade(),\n                        window,\n                        cx,\n                    )\n                })\n            },\n        ).unwrap();\n        \n        cx.activate(true);\n    });\n}"}
-</invoke>
+use assets::Assets;
+use diff_viewer::diff_viewer_ui::DiffViewer;
+use editor;
+use gpui::{App, AppContext, Application, Bounds, WindowBounds, WindowOptions, px, size};
+use language;
+use project;
+use settings;
+use std::env;
+use std::path::PathBuf;
+use theme;
+use workspace;
+
+fn main() {
+    Application::new().with_assets(Assets).run(|cx: &mut App| {
+        settings::init(cx);
+        theme::init(theme::LoadThemes::JustBase, cx);
+        language::init(cx);
+        project::Project::init_settings(cx);
+        workspace::init_settings(cx);
+        editor::init(cx);
+        let bounds = Bounds::centered(None, size(px(1200.0), px(800.0)), cx);
+        cx.open_window(
+            WindowOptions {
+                window_bounds: Some(WindowBounds::Windowed(bounds)),
+                titlebar: Some(gpui::TitlebarOptions {
+                    title: Some("Diff Viewer Demo".into()),
+                    ..Default::default()
+                }),
+                ..Default::default()
+            },
+            |window, cx| {
+                // Sample file paths for demo - you can change these to actual files
+                let left_path = Some(
+                    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("examples/ProvidersOld.tsx"),
+                );
+                let right_path = Some(
+                    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("examples/ProvidersNew.tsx"),
+                );
+
+                // Create the diff viewer
+                let diff_viewer = cx.new(|cx| DiffViewer::new(left_path, right_path, window, cx));
+
+                // Initialize the diff viewer (discover files and load diff)
+                diff_viewer.update(cx, |viewer: &mut DiffViewer, cx| {
+                    viewer.initialize(cx);
+                });
+
+                diff_viewer
+            },
+        )
+        .unwrap();
+        cx.activate(true);
+    });
+}

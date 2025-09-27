@@ -1799,8 +1799,8 @@ impl Editor {
         let full_mode = mode.is_full();
         let is_minimap = mode.is_minimap();
         let diagnostics_max_severity = if full_mode {
-            EditorSettings::get_global(cx)
-                .diagnostics_max_severity
+            EditorSettings::try_get(cx)
+                .and_then(|s| s.diagnostics_max_severity)
                 .unwrap_or(DiagnosticSeverity::Hint)
         } else {
             DiagnosticSeverity::Off

@@ -1,28 +1,19 @@
 // Perfect JetBrains Split Diff View adapted for GPUI
 // Sophisticated diff viewer with advanced algorithms and beautiful connectors
 
-use crate::split_diff_model::{SplitDiffModel};
-use crate::split_diff_settings::{
-    SplitDiffSettings, SplitDiffViewMode,
-};
-use diff_viewer::{
-    LineType, DisplayLine,
-    PerfectConnectorRenderer,
-};
-use editor::{
-    Editor, EditorEvent, MultiBuffer,
-    scroll::{Autoscroll},
-};
+use crate::split_diff_model::SplitDiffModel;
+use crate::split_diff_settings::{SplitDiffSettings, SplitDiffViewMode};
+use diff_viewer::{DisplayLine, LineType, PerfectConnectorRenderer};
+use editor::{Editor, EditorEvent, MultiBuffer, scroll::Autoscroll};
 use gpui::{
-    AnyElement, AnyView, App, Context, Entity, EventEmitter,
-    FocusHandle, Focusable, IntoElement, Render, Subscription, Task, WeakEntity, actions, 
-    px, hsla, div,
+    AnyElement, AnyView, App, Context, Entity, EventEmitter, FocusHandle, Focusable, IntoElement,
+    Render, Subscription, Task, WeakEntity, actions, div, hsla, px,
 };
-use language::{Buffer};
-use project::{Project};
+use language::Buffer;
+use project::Project;
 use settings::Settings;
 use std::any::TypeId;
-use ui::{Button, Icon, IconName, Label, prelude::*, h_flex, v_flex};
+use ui::{Button, Icon, IconName, Label, h_flex, prelude::*, v_flex};
 use workspace::searchable::SearchableItemHandle;
 use workspace::{
     ItemHandle, ItemNavHistory, Workspace,
@@ -160,13 +151,13 @@ impl PerfectSplitDiffView {
         cx: &mut Context<Self>,
     ) -> Self {
         let focus_handle = cx.focus_handle();
-        
+
         // Get settings first to avoid borrowing conflicts
         let default_view = {
             let settings = SplitDiffSettings::get_global(cx);
             settings.default_view
         };
-        
+
         let sync_scroll = {
             let settings = SplitDiffSettings::get_global(cx);
             settings.sync_scroll
@@ -369,10 +360,10 @@ impl PerfectSplitDiffView {
     ) -> gpui::AnyElement {
         let left_editor = self.left_editor.clone();
         let right_editor = self.right_editor.clone();
-        
+
         // Create sophisticated toolbar with perfect styling
         let toolbar = self.render_perfect_toolbar(window, cx);
-        
+
         v_flex()
             .size_full()
             .child(toolbar)
@@ -385,15 +376,20 @@ impl PerfectSplitDiffView {
                             .flex_1()
                             .relative()
                             .bg(hsla(0.0, 0.0, 0.12, 1.0)) // Dark editor background
-                            .child(left_editor.clone())
+                            .child(left_editor.clone()),
                     )
                     .child(
                         // Perfect middle gutter with sophisticated connectors
                         if self.show_connectors {
-                            self.connector_renderer.render_middle_gutter(px(600.0)).into_any_element()
+                            self.connector_renderer
+                                .render_middle_gutter(px(600.0))
+                                .into_any_element()
                         } else {
-                            div().w(px(4.0)).bg(hsla(0.0, 0.0, 0.18, 1.0)).into_any_element()
-                        }
+                            div()
+                                .w(px(4.0))
+                                .bg(hsla(0.0, 0.0, 0.18, 1.0))
+                                .into_any_element()
+                        },
                     )
                     .child(
                         // Right pane with sophisticated highlighting
@@ -401,16 +397,20 @@ impl PerfectSplitDiffView {
                             .flex_1()
                             .relative()
                             .bg(hsla(0.0, 0.0, 0.12, 1.0)) // Dark editor background
-                            .child(right_editor.clone())
-                    )
+                            .child(right_editor.clone()),
+                    ),
             )
             .into_any_element()
     }
 
     /// Render sophisticated JetBrains-style toolbar
-    fn render_perfect_toolbar(&self, _window: &mut gpui::Window, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render_perfect_toolbar(
+        &self,
+        _window: &mut gpui::Window,
+        cx: &mut Context<Self>,
+    ) -> impl IntoElement {
         let colors = cx.theme().colors();
-        
+
         h_flex()
             .h(px(44.0)) // JetBrains standard toolbar height
             .px_4()
@@ -427,37 +427,63 @@ impl PerfectSplitDiffView {
                     .child(
                         Icon::new(IconName::FileDiff)
                             .size(ui::IconSize::Medium)
-                            .color(ui::Color::Accent)
+                            .color(ui::Color::Accent),
                     )
                     .child(
                         Label::new("Perfect Split Diff")
                             .size(ui::LabelSize::Default)
-                            .color(ui::Color::Default)
-                    )
+                            .color(ui::Color::Default),
+                    ),
             )
             .child(
                 h_flex()
                     .gap_2()
                     .items_center()
                     .child(
-                        Button::new("sync_scroll", if self.sync_scroll { "Sync: ON" } else { "Sync: OFF" })
-                            .icon(if self.sync_scroll { IconName::ArrowRightLeft } else { IconName::ArrowRightLeft })
-                            .icon_size(ui::IconSize::Small)
-                            .size(ui::ButtonSize::Compact)
-                            .style(if self.sync_scroll { ui::ButtonStyle::Filled } else { ui::ButtonStyle::Subtle })
-                            .on_click(cx.listener(|this, _, window, cx| {
-                                this.toggle_sync_scroll(&ToggleSyncScroll, window, cx);
-                            }))
+                        Button::new(
+                            "sync_scroll",
+                            if self.sync_scroll {
+                                "Sync: ON"
+                            } else {
+                                "Sync: OFF"
+                            },
+                        )
+                        .icon(if self.sync_scroll {
+                            IconName::ArrowRightLeft
+                        } else {
+                            IconName::ArrowRightLeft
+                        })
+                        .icon_size(ui::IconSize::Small)
+                        .size(ui::ButtonSize::Compact)
+                        .style(if self.sync_scroll {
+                            ui::ButtonStyle::Filled
+                        } else {
+                            ui::ButtonStyle::Subtle
+                        })
+                        .on_click(cx.listener(|this, _, window, cx| {
+                            this.toggle_sync_scroll(&ToggleSyncScroll, window, cx);
+                        })),
                     )
                     .child(
-                        Button::new("connectors", if self.show_connectors { "Connectors: ON" } else { "Connectors: OFF" })
-                            .icon(IconName::ArrowRightLeft)
-                            .icon_size(ui::IconSize::Small)
-                            .size(ui::ButtonSize::Compact)
-                            .style(if self.show_connectors { ui::ButtonStyle::Filled } else { ui::ButtonStyle::Subtle })
-                            .on_click(cx.listener(|this, _, window, cx| {
-                                this.toggle_connectors(&ToggleConnectors, window, cx);
-                            }))
+                        Button::new(
+                            "connectors",
+                            if self.show_connectors {
+                                "Connectors: ON"
+                            } else {
+                                "Connectors: OFF"
+                            },
+                        )
+                        .icon(IconName::ArrowRightLeft)
+                        .icon_size(ui::IconSize::Small)
+                        .size(ui::ButtonSize::Compact)
+                        .style(if self.show_connectors {
+                            ui::ButtonStyle::Filled
+                        } else {
+                            ui::ButtonStyle::Subtle
+                        })
+                        .on_click(cx.listener(|this, _, window, cx| {
+                            this.toggle_connectors(&ToggleConnectors, window, cx);
+                        })),
                     )
                     .child(
                         Button::new("swap_sides", "Swap")
@@ -467,8 +493,8 @@ impl PerfectSplitDiffView {
                             .style(ui::ButtonStyle::Subtle)
                             .on_click(cx.listener(|this, _, window, cx| {
                                 this.swap_sides(&SwapSides, window, cx);
-                            }))
-                    )
+                            })),
+                    ),
             )
     }
 }
@@ -667,7 +693,7 @@ impl Render for PerfectSplitDiffView {
                         div()
                             .flex_1()
                             .bg(hsla(0.0, 0.0, 0.12, 1.0))
-                            .child(self.left_editor.clone())
+                            .child(self.left_editor.clone()),
                     )
                     .into_any_element()
             }

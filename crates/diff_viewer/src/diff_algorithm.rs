@@ -73,11 +73,11 @@ impl DiffAlgorithm for Myers {
         let old_text = old_lines.join("\n");
         let new_text = new_lines.join("\n");
         let diff = similar::TextDiff::from_lines(&old_text, &new_text);
-        
+
         let mut hunks = Vec::new();
         let mut old_pos = 0;
         let mut new_pos = 0;
-        
+
         for change in diff.iter_all_changes() {
             match change.tag() {
                 similar::ChangeTag::Equal => {
@@ -108,7 +108,7 @@ impl DiffAlgorithm for Myers {
                 }
             }
         }
-        
+
         self.merge_adjacent_operations(hunks)
     }
 }

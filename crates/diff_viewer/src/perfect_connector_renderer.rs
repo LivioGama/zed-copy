@@ -1,11 +1,13 @@
 // Perfect JetBrains connector renderer adapted for GPUI
 // Sophisticated bezier curve rendering with mesh-based approach
 
-use gpui::{
-    Bounds, Hsla, IntoElement, ParentElement, PathBuilder, Pixels, Point, Styled, Window,
-    canvas, div, hsla, point, px, Corners, PaintQuad,
+use crate::perfect_diff_engine::{
+    ImaraBlockOperation, ImaraDiffAnalysis, LineType, MappingSegment,
 };
-use crate::perfect_diff_engine::{LineType, MappingSegment, ImaraDiffAnalysis, ImaraBlockOperation};
+use gpui::{
+    Bounds, Corners, Hsla, IntoElement, PaintQuad, ParentElement, PathBuilder, Pixels, Point,
+    Styled, Window, canvas, div, hsla, point, px,
+};
 
 #[derive(Debug, Clone)]
 pub struct ConnectorPoint {
@@ -37,7 +39,7 @@ impl PerfectBezierConnector {
             LineType::Addition => (hsla(120.0 / 360.0, 0.7, 0.5, 0.25), 2.0), // Green
             LineType::Deletion => (hsla(0.0 / 360.0, 0.7, 0.5, 0.25), 2.0),   // Red
             LineType::Modification => (hsla(240.0 / 360.0, 0.6, 0.5, 0.25), 3.0), // Blue, thicker
-            LineType::Context => (hsla(200.0 / 360.0, 0.1, 0.7, 0.15), 1.0), // Light Gray
+            LineType::Context => (hsla(200.0 / 360.0, 0.1, 0.7, 0.15), 1.0),  // Light Gray
         };
 
         Self {
@@ -78,7 +80,10 @@ impl PerfectBezierConnector {
         // Create filled connector band using quad
         let height = px(self.thickness);
         let connector_bounds = Bounds {
-            origin: Point { x: start.x, y: start.y - height / 2.0 },
+            origin: Point {
+                x: start.x,
+                y: start.y - height / 2.0,
+            },
             size: gpui::Size {
                 width: end.x - start.x,
                 height: height * 2.0,
@@ -106,6 +111,7 @@ impl PerfectBezierConnector {
     }
 }
 
+#[derive(Clone)]
 pub struct PerfectConnectorRenderer {
     pub connectors: Vec<PerfectBezierConnector>,
     pub scale_factor: f32,
@@ -241,10 +247,10 @@ impl PerfectConnectorRenderer {
                         for connector in &connectors {
                             connector.render_connector_band(bounds, window);
                         }
-                    }
+                    },
                 )
                 .w_full()
-                .h_full()
+                .h_full(),
             )
     }
 }

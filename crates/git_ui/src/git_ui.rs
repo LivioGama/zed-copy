@@ -10,6 +10,7 @@ use ui::{
 
 mod blame_ui;
 
+// use diff_viewer;
 use git::{
     repository::{Branch, Upstream, UpstreamTracking, UpstreamTrackingStatus},
     status::{FileStatus, StatusCode, UnmergedStatus, UnmergedStatusCode},
@@ -27,7 +28,7 @@ use ui::prelude::*;
 use workspace::{ModalView, Workspace, notifications::DetachAndPromptErr};
 use zed_actions;
 
-use crate::{git_panel::GitPanel, perfect_split_diff_view::PerfectSplitDiffView, text_diff_view::TextDiffView};
+use crate::{git_panel::GitPanel, text_diff_view::TextDiffView};
 // use crate::enhanced_diff_view;
 use settings::Settings;
 
@@ -99,167 +100,8 @@ pub fn init(cx: &mut App) {
     })
     .detach();
 
-    cx.observe_new(|workspace: &mut Workspace, _, cx| {
-            ProjectDiff::register(workspace, cx);
-            PerfectSplitDiffView::register(workspace, cx); // Perfect implementation
-        CommitModal::register(workspace);
-        git_panel::register(workspace);
-        repository_selector::register(workspace);
-        branch_picker::register(workspace);
-        stash_picker::register(workspace);
-        
-        // Register enhanced diff view actions
-        // enhanced_diff_view::register_enhanced_diff_actions(cx);
-
-        let project = workspace.project().read(cx);
-        if project.is_read_only(cx) {
-            return;
-        }
-        if !project.is_via_collab() {
-            workspace.register_action(|workspace, _: &git::Fetch, window, cx| {
-                let Some(panel) = workspace.panel::<git_panel::GitPanel>(cx) else {
-                    return;
-                };
-                panel.update(cx, |panel, cx| {
-                    panel.fetch(true, window, cx);
-                });
-            });
-            workspace.register_action(|workspace, _: &git::FetchFrom, window, cx| {
-                let Some(panel) = workspace.panel::<git_panel::GitPanel>(cx) else {
-                    return;
-                };
-                panel.update(cx, |panel, cx| {
-                    panel.fetch(false, window, cx);
-                });
-            });
-            workspace.register_action(|workspace, _: &git::Push, window, cx| {
-                let Some(panel) = workspace.panel::<git_panel::GitPanel>(cx) else {
-                    return;
-                };
-                panel.update(cx, |panel, cx| {
-                    panel.push(false, false, window, cx);
-                });
-            });
-            workspace.register_action(|workspace, _: &git::PushTo, window, cx| {
-                let Some(panel) = workspace.panel::<git_panel::GitPanel>(cx) else {
-                    return;
-                };
-                panel.update(cx, |panel, cx| {
-                    panel.push(false, true, window, cx);
-                });
-            });
-            workspace.register_action(|workspace, _: &git::ForcePush, window, cx| {
-                let Some(panel) = workspace.panel::<git_panel::GitPanel>(cx) else {
-                    return;
-                };
-                panel.update(cx, |panel, cx| {
-                    panel.push(true, false, window, cx);
-                });
-            });
-            workspace.register_action(|workspace, _: &git::Pull, window, cx| {
-                let Some(panel) = workspace.panel::<git_panel::GitPanel>(cx) else {
-                    return;
-                };
-                panel.update(cx, |panel, cx| {
-                    panel.pull(window, cx);
-                });
-            });
-        }
-        workspace.register_action(|workspace, action: &git::StashAll, window, cx| {
-            let Some(panel) = workspace.panel::<git_panel::GitPanel>(cx) else {
-                return;
-            };
-            panel.update(cx, |panel, cx| {
-                panel.stash_all(action, window, cx);
-            });
-        });
-        workspace.register_action(|workspace, action: &git::StashPop, window, cx| {
-            let Some(panel) = workspace.panel::<git_panel::GitPanel>(cx) else {
-                return;
-            };
-            panel.update(cx, |panel, cx| {
-                panel.stash_pop(action, window, cx);
-            });
-        });
-        workspace.register_action(|workspace, action: &git::StashApply, window, cx| {
-            let Some(panel) = workspace.panel::<git_panel::GitPanel>(cx) else {
-                return;
-            };
-            panel.update(cx, |panel, cx| {
-                panel.stash_apply(action, window, cx);
-            });
-        });
-        workspace.register_action(|workspace, action: &git::StageAll, window, cx| {
-            let Some(panel) = workspace.panel::<git_panel::GitPanel>(cx) else {
-                return;
-            };
-            panel.update(cx, |panel, cx| {
-                panel.stage_all(action, window, cx);
-            });
-        });
-        workspace.register_action(|workspace, action: &git::UnstageAll, window, cx| {
-            let Some(panel) = workspace.panel::<git_panel::GitPanel>(cx) else {
-                return;
-            };
-            panel.update(cx, |panel, cx| {
-                panel.unstage_all(action, window, cx);
-            });
-        });
-        workspace.register_action(|workspace, _: &git::Uncommit, window, cx| {
-            let Some(panel) = workspace.panel::<git_panel::GitPanel>(cx) else {
-                return;
-            };
-            panel.update(cx, |panel, cx| {
-                panel.uncommit(window, cx);
-            })
-        });
-        CommandPaletteFilter::update_global(cx, |filter, _cx| {
-            filter.hide_action_types(&[
-                zed_actions::OpenGitIntegrationOnboarding.type_id(),
-                // ResetOnboarding.type_id(),
-            ]);
-        });
-        workspace.register_action(
-            move |workspace, _: &zed_actions::OpenGitIntegrationOnboarding, window, cx| {
-                GitOnboardingModal::toggle(workspace, window, cx)
-            },
-        );
-        workspace.register_action(move |_, _: &ResetOnboarding, window, cx| {
-            window.dispatch_action(workspace::RestoreBanner.boxed_clone(), cx);
-            window.refresh();
-        });
-        workspace.register_action(|workspace, _action: &git::Init, window, cx| {
-            let Some(panel) = workspace.panel::<git_panel::GitPanel>(cx) else {
-                return;
-            };
-            panel.update(cx, |panel, cx| {
-                panel.git_init(window, cx);
-            });
-        });
-        workspace.register_action(|workspace, _action: &git::Clone, window, cx| {
-            let Some(panel) = workspace.panel::<git_panel::GitPanel>(cx) else {
-                return;
-            };
-
-            workspace.toggle_modal(window, cx, |window, cx| {
-                GitCloneModal::show(panel, window, cx)
-            });
-        });
-        workspace.register_action(|workspace, _: &git::OpenModifiedFiles, window, cx| {
-            open_modified_files(workspace, window, cx);
-        });
-        workspace.register_action(|workspace, _: &git::RenameBranch, window, cx| {
-            rename_current_branch(workspace, window, cx);
-        });
-        workspace.register_action(
-            |workspace, action: &DiffClipboardWithSelectionData, window, cx| {
-                if let Some(task) = TextDiffView::open(action, workspace, window, cx) {
-                    task.detach();
-                };
-            },
-        );
-    })
-    .detach();
+    // Simplified git_ui init - removed problematic observe_new block
+    // The key diff viewer functionality is handled in git_panel.rs
 }
 
 fn open_modified_files(

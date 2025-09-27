@@ -140,14 +140,14 @@ pub struct SettingsLocation<'a> {
 
 pub struct SettingsStore {
     setting_values: HashMap<TypeId, Box<dyn AnySettingValue>>,
-    default_settings: Rc<SettingsContent>,
+    default_settings: Arc<SettingsContent>,
     user_settings: Option<UserSettingsContent>,
     global_settings: Option<Box<SettingsContent>>,
 
     extension_settings: Option<Box<SettingsContent>>,
     server_settings: Option<Box<SettingsContent>>,
 
-    merged_settings: Rc<SettingsContent>,
+    merged_settings: Arc<SettingsContent>,
 
     local_settings: BTreeMap<(WorktreeId, Arc<RelPath>), SettingsContent>,
     raw_editorconfig_settings: BTreeMap<(WorktreeId, Arc<RelPath>), (String, Option<Editorconfig>)>,
@@ -221,16 +221,14 @@ trait AnySettingValue: 'static + Send + Sync {
 impl SettingsStore {
     pub fn new(cx: &App, default_settings: &str) -> Self {
         let (setting_file_updates_tx, mut setting_file_updates_rx) = mpsc::unbounded();
-        let default_settings: Rc<SettingsContent> =
-            parse_json_with_comments(default_settings).unwrap();
+        let default_settings = Arc::new(parse_json_with_comments(default_settings).unwrap());
         Self {
             setting_values: Default::default(),
-            default_settings: default_settings.clone(),
+            default_settings: Arc::clone(&default_settings),
             global_settings: None,
             server_settings: None,
             user_settings: None,
             extension_settings: None,
-
             merged_settings: default_settings,
             local_settings: BTreeMap::default(),
             raw_editorconfig_settings: BTreeMap::default(),
@@ -941,7 +939,7 @@ impl SettingsStore {
                 merged.merge_from_option(user_settings.for_profile(cx));
             }
             merged.merge_from_option(self.server_settings.as_deref());
-            self.merged_settings = Rc::new(merged);
+            self.merged_settings = Arc::new(merged);
 
             for setting_value in self.setting_values.values_mut() {
                 let value = setting_value.from_settings(&self.merged_settings, cx);

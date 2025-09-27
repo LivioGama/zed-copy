@@ -104,3 +104,4 @@ echo ""
 echo "⚡ You may need to restart your terminal or run 'source $SHELL_PROFILE' to use the new environment variables."
 echo ""
 echo "🎉 Happy fast building!"
+

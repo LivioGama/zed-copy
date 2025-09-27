@@ -312,7 +312,7 @@ impl ProjectDiff {
                 self.split_diff_view = None;
             }
         }
-        
+
         cx.notify();
     }
 
@@ -333,7 +333,9 @@ impl ProjectDiff {
             if let Some(first_path) = paths.first() {
                 // Convert PathKey to ProjectPath
                 if let Some(git_repo) = self.git_store.read(cx).active_repository() {
-                    git_repo.read(cx).repo_path_to_project_path(&RepoPath::from(first_path.path().as_ref()), cx)
+                    git_repo
+                        .read(cx)
+                        .repo_path_to_project_path(&RepoPath::from(first_path.path().as_ref()), cx)
                 } else {
                     None
                 }
@@ -341,53 +343,68 @@ impl ProjectDiff {
                 None
             }
         });
-        
+
         let Some(active_path) = active_path else {
             return;
         };
-        
+
         let Some(workspace) = self.workspace.upgrade() else {
             return;
         };
-        
+
         let Some(git_repo) = self.git_store.read(cx).active_repository() else {
             return;
         };
-        
-        let repo_path = git_repo.read(cx).project_path_to_repo_path(&active_path, cx);
+
+        let repo_path = git_repo
+            .read(cx)
+            .project_path_to_repo_path(&active_path, cx);
         let Some(repo_path) = repo_path else {
             return;
         };
-        
+
         let project = self.project.clone();
         let workspace_handle = workspace.downgrade();
-        
+
         let settings = SplitDiffSettings::get_global(cx);
         let options = DiffOptions::from_settings(&settings);
-        
+
         let this = cx.weak_entity();
-        window.spawn(cx, async move |cx| {
-            let left_buffer = project
-                .update(cx, |project, cx| project.open_buffer(active_path.clone(), cx))?
-                .await?;
-            
-            let right_content = git_repo.update(cx, |repo, _cx| {
-                repo.get_committed_text(repo_path, _cx)
-            })?.await.unwrap_or_default();
-            
-            let right_buffer = cx.new(|cx| Buffer::local(&right_content, cx))?;
-            
-            let computation = DiffComputation::new(left_buffer, right_buffer, options);
-            let model = computation.compute(cx).await?;
-            
-            workspace_handle.update_in(cx, |_workspace, window, cx| {
-                this.update(cx, |this, cx| {
-                    let view = cx.new(|cx| PerfectSplitDiffView::new(project, workspace_handle.clone(), model, window, cx));
-                    this.split_diff_view = Some(view);
-                    cx.notify();
+        window
+            .spawn(cx, async move |cx| {
+                let left_buffer = project
+                    .update(cx, |project, cx| {
+                        project.open_buffer(active_path.clone(), cx)
+                    })?
+                    .await?;
+
+                let right_content = git_repo
+                    .update(cx, |repo, _cx| repo.get_committed_text(repo_path, _cx))?
+                    .await
+                    .unwrap_or_default();
+
+                let right_buffer = cx.new(|cx| Buffer::local(&right_content, cx))?;
+
+                let computation = DiffComputation::new(left_buffer, right_buffer, options);
+                let model = computation.compute(cx).await?;
+
+                workspace_handle.update_in(cx, |_workspace, window, cx| {
+                    this.update(cx, |this, cx| {
+                        let view = cx.new(|cx| {
+                            PerfectSplitDiffView::new(
+                                project,
+                                workspace_handle.clone(),
+                                model,
+                                window,
+                                cx,
+                            )
+                        });
+                        this.split_diff_view = Some(view);
+                        cx.notify();
+                    })
                 })
             })
-        }).detach_and_log_err(cx);
+            .detach_and_log_err(cx);
     }
 
     fn button_states(&self, cx: &App) -> ButtonStates {
@@ -888,11 +905,9 @@ impl Render for ProjectDiff {
                         ),
                 )
             })
-            .when(!is_empty, |el| {
-                match self.view_mode {
-                    SplitDiffViewMode::Unified => el.child(self.editor.clone()),
-                    SplitDiffViewMode::Split => el.child(self.render_split_view(window, cx)),
-                }
+            .when(!is_empty, |el| match self.view_mode {
+                SplitDiffViewMode::Unified => el.child(self.editor.clone()),
+                SplitDiffViewMode::Split => el.child(self.render_split_view(window, cx)),
             })
     }
 }
@@ -1120,24 +1135,21 @@ impl Render for ProjectDiffToolbar {
                     ),
             )
             .child(vertical_divider())
-            .child(
-                h_group_sm()
-                    .child({
-                        let button_text = match project_diff.read(cx).view_mode {
-                            SplitDiffViewMode::Unified => "Split View",
-                            SplitDiffViewMode::Split => "Unified View",
-                        };
-                        Button::new("split-diff", button_text)
-                            .tooltip(Tooltip::for_action_title_in(
-                                "Toggle Split Diff View",
-                                &ToggleSplitDiff,
-                                &focus_handle,
-                            ))
-                            .on_click(cx.listener(|this, _, window, cx| {
-                                this.dispatch_action(&ToggleSplitDiff, window, cx)
-                            }))
-                    })
-            )
+            .child(h_group_sm().child({
+                let button_text = match project_diff.read(cx).view_mode {
+                    SplitDiffViewMode::Unified => "Split View",
+                    SplitDiffViewMode::Split => "Unified View",
+                };
+                Button::new("split-diff", button_text)
+                    .tooltip(Tooltip::for_action_title_in(
+                        "Toggle Split Diff View",
+                        &ToggleSplitDiff,
+                        &focus_handle,
+                    ))
+                    .on_click(cx.listener(|this, _, window, cx| {
+                        this.dispatch_action(&ToggleSplitDiff, window, cx)
+                    }))
+            }))
             .child(vertical_divider())
             .child(
                 h_group_sm()

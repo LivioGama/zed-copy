@@ -9,7 +9,7 @@ license = "GPL-3.0-or-later"
 workspace = true
 
 [lib]
-path = "src/diff_viewer.rs"
+path = "src/lib.rs"
 doctest = false
 
 [features]
@@ -17,6 +17,7 @@ test-support = []
 
 [dependencies]
 anyhow.workspace = true
+assets.workspace = true
 collections.workspace = true
 editor.workspace = true
 buffer_diff.workspace = true
@@ -44,8 +45,12 @@ regex.workspace = true
 
 # Advanced diff algorithms from perfect implementation
 similar = "2.6"
-imara-diff = "0.1.8" # Perfect diff algorithm  
+imara-diff = "0.2.0" # Perfect diff algorithm
 dissimilar = "1.0"
+
+# Temporary dependencies for config compatibility (will be removed)
+egui = "0.28"
+eframe = "0.28"
 
 [dev-dependencies]
 ctor.workspace = true
@@ -54,3 +59,7 @@ rand.workspace = true
 serde_json.workspace = true
 unindent.workspace = true
 zlog.workspace = true
+
+[[example]]
+name = "demo"
+path = "examples/demo.rs"

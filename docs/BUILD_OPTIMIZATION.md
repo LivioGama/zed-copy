@@ -269,3 +269,4 @@ sccache --show-stats
 ---
 
 **Note**: These optimizations prioritize build speed over runtime performance for development workflows. Always use the `release` profile for production builds.
+
