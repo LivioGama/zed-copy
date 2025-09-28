@@ -12,7 +12,6 @@ pub mod state;
 pub mod actions;
 pub mod config;
 pub mod highlight_renderer_gpui;
-pub mod layout_manager_gpui;
 pub mod navigation;
 pub mod theme;
 pub mod utils;

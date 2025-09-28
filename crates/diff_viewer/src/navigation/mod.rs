@@ -2,8 +2,6 @@
 // GPUI Keyboard navigation module for diff viewer
 // Converted from EGUI to GPUI event system
 
-use gpui::KeyContext;
-
 /// Navigation actions that can be performed in GPUI
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum NavigationAction {

@@ -18,7 +18,7 @@ impl HighlightRenderer {
     pub fn draw_highlight(
         &self,
         window: &mut Window,
-        cx: &mut Context<'_, ()>,
+        _cx: &mut Context<'_, ()>,
         bounds: Bounds<gpui::Pixels>,
         line_type: &crate::models::line::LineType,
     ) {
@@ -43,8 +43,7 @@ impl HighlightRenderer {
         };
 
         if highlight_color.a > 0.0 {
-            // TODO: Implement quad painting with proper GPUI API
-            // cx.paint_quad(gpui::fill(bounds, highlight_color));
+            window.paint_quad(gpui::fill(bounds, highlight_color));
         }
     }
 

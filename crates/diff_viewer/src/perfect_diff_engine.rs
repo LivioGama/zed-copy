@@ -1,9 +1,7 @@
 // Perfect JetBrains diff engine adapted for GPUI
 // Advanced diff algorithms using both similar and imara-diff libraries
 
-use anyhow::Result;
 use imara_diff::{Algorithm, Diff, InternedInput};
-use similar::{ChangeTag, TextDiff};
 use std::ops::Range;
 
 #[derive(Debug, Clone, PartialEq)]

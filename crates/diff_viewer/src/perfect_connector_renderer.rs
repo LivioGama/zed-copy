@@ -68,7 +68,7 @@ impl PerfectBezierConnector {
     }
 
     /// Render sophisticated connector band using cubic bezier curves
-    pub fn render_connector_band(&self, bounds: Bounds<Pixels>, window: &mut Window) {
+    pub fn render_connector_band(&self, _bounds: Bounds<Pixels>, window: &mut Window) {
         let start = point(px(self.start_point.x), px(self.start_point.y));
         let end = point(px(self.end_point.x), px(self.end_point.y));
 
