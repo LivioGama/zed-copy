@@ -160,19 +160,14 @@ fn extract_doc_comment(attrs: &[Attribute]) -> Option<String> {
     let mut doc_lines = Vec::new();
 
     for attr in attrs {
-        if attr.path().is_ident("doc") {
-            match (&attr.meta, &attr.meta, &attr.meta) {
-                (Meta::NameValue(meta), _, _) if matches!(&meta.value, Expr::Lit(expr_lit) if matches!(&expr_lit.lit, Lit::Str(_lit_str))) => {
-                    if let Expr::Lit(expr_lit) = &meta.value {
-                        if let Lit::Str(lit_str) = &expr_lit.lit {
-                            let line = lit_str.value();
-                            let line = line.strip_prefix(' ').unwrap_or(&line);
-                            doc_lines.push(line.to_string());
-                        }
-                    }
-                }
-                _ => {}
-            }
+        if attr.path().is_ident("doc")
+            && let Meta::NameValue(meta) = &attr.meta
+            && let Expr::Lit(expr_lit) = &meta.value
+            && let Lit::Str(lit_str) = &expr_lit.lit
+        {
+            let line = lit_str.value();
+            let line = line.strip_prefix(' ').unwrap_or(&line);
+            doc_lines.push(line.to_string());
         }
     }
 

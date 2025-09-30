@@ -1,12 +1,12 @@
 use crate::split_diff_settings::{IntralineMode, SplitDiffSettings, WhitespaceMode};
 use buffer_diff::{BufferDiffSnapshot, DiffHunk as BufferDiffHunk};
 
-use git::repository::{GitRepository, RepoPath};
-use gpui::{AppContext as _, AsyncApp, Entity, Task};
+use git::repository::RepoPath;
+use gpui::{AsyncApp, Entity, Task};
 use language::Buffer;
-use project::Project;
 use std::{ops::Range, sync::LazyLock};
 use text::ToOffset as _;
+use util::rel_path::RelPath;
 
 pub static COMPUTE_DIFF_TASK: LazyLock<gpui::TaskLabel> = LazyLock::new(gpui::TaskLabel::new);
 
@@ -105,8 +105,8 @@ impl DiffOptions {
     pub fn from_settings(settings: &SplitDiffSettings) -> Self {
         Self {
             context_lines: settings.context_lines,
-            ignore_whitespace: settings.ignore_whitespace,
-            intraline: settings.intraline,
+            ignore_whitespace: settings.ignore_whitespace.clone(),
+            intraline: settings.intraline.clone(),
         }
     }
 }
@@ -173,8 +173,12 @@ impl DiffComputation {
             }
 
             Ok(SplitDiffModel {
-                left_spec: DiffSpec::working_directory(RepoPath::from("left")), // TODO: proper spec
-                right_spec: DiffSpec::working_directory(RepoPath::from("right")),
+                left_spec: DiffSpec::working_directory(RepoPath::from(
+                    RelPath::unix("left").unwrap(),
+                )), // TODO: proper spec
+                right_spec: DiffSpec::working_directory(RepoPath::from(
+                    RelPath::unix("right").unwrap(),
+                )),
                 hunks,
                 left_content: left_content.to_string(),
                 right_content: right_content.to_string(),
@@ -229,7 +233,7 @@ impl DiffComputation {
             (true, true) => unreachable!("Empty hunk"),
         };
 
-        let intra_line_changes = if self.options.intraline != IntralineMode::Off {
+        let intra_line_changes = if self.options.intraline != IntralineMode::None {
             self.compute_intra_line_changes(
                 buffer_hunk,
                 left_content,
@@ -254,7 +258,7 @@ impl DiffComputation {
         buffer_hunk: &BufferDiffHunk,
         left_content: &str,
         right_content: &str,
-        left_snapshot: &language::BufferSnapshot,
+        _left_snapshot: &language::BufferSnapshot,
         right_snapshot: &text::BufferSnapshot,
     ) -> Vec<IntraLineChange> {
         // Simple word-level diff for intra-line changes
@@ -401,12 +405,21 @@ mod tests {
 
     #[test]
     fn test_diff_spec_creation() {
-        let spec = DiffSpec::working_directory(RepoPath::from("test.txt"));
-        assert_eq!(spec.path, RepoPath::from("test.txt"));
+        let spec = DiffSpec::working_directory(RepoPath::from(RelPath::unix("test.txt").unwrap()));
+        assert_eq!(
+            spec.path,
+            RepoPath::from(RelPath::unix("test.txt").unwrap())
+        );
         assert!(spec.revision.is_none());
 
-        let spec = DiffSpec::revision(RepoPath::from("test.txt"), "HEAD".to_string());
-        assert_eq!(spec.path, RepoPath::from("test.txt"));
+        let spec = DiffSpec::revision(
+            RepoPath::from(RelPath::unix("test.txt").unwrap()),
+            "HEAD".to_string(),
+        );
+        assert_eq!(
+            spec.path,
+            RepoPath::from(RelPath::unix("test.txt").unwrap())
+        );
         assert_eq!(spec.revision, Some("HEAD".to_string()));
     }
 

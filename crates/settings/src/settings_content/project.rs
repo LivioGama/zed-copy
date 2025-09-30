@@ -7,7 +7,9 @@ use serde_with::skip_serializing_none;
 use settings_macros::MergeFrom;
 use util::serde::default_true;
 
-use crate::{AllLanguageSettingsContent, ExtendingVec, SlashCommandSettings};
+use crate::{
+    AllLanguageSettingsContent, ExtendingVec, ProjectTerminalSettingsContent, SlashCommandSettings,
+};
 
 #[skip_serializing_none]
 #[derive(Debug, PartialEq, Clone, Default, Serialize, Deserialize, JsonSchema, MergeFrom)]
@@ -28,6 +30,9 @@ pub struct ProjectSettingsContent {
     /// Default: null
     #[serde(default)]
     pub lsp: HashMap<Arc<str>, LspSettings>,
+
+    #[serde(default)]
+    pub terminal: Option<ProjectTerminalSettingsContent>,
 
     /// Configuration for Debugger-related features
     #[serde(default)]
@@ -249,7 +254,7 @@ pub struct GitSettings {
     pub git_gutter: Option<GitGutterSetting>,
     /// Sets the debounce threshold (in milliseconds) after which changes are reflected in the git gutter.
     ///
-    /// Default: null
+    /// Default: 0
     pub gutter_debounce: Option<u64>,
     /// Whether or not to show git blame data inline in
     /// the currently focused line.
@@ -268,7 +273,19 @@ pub struct GitSettings {
     pub hunk_style: Option<GitHunkStyleSetting>,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Default, Serialize, Deserialize, JsonSchema, MergeFrom)]
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Default,
+    Serialize,
+    Deserialize,
+    JsonSchema,
+    MergeFrom,
+    strum::VariantArray,
+    strum::VariantNames,
+)]
 #[serde(rename_all = "snake_case")]
 pub enum GitGutterSetting {
     /// Show git gutter in tracked files.
@@ -318,7 +335,7 @@ pub struct BlameSettings {
 }
 
 #[skip_serializing_none]
-#[derive(Clone, Copy, PartialEq, Debug, Serialize, Deserialize, JsonSchema, MergeFrom)]
+#[derive(Clone, Copy, PartialEq, Debug, Default, Serialize, Deserialize, JsonSchema, MergeFrom)]
 #[serde(rename_all = "snake_case")]
 pub struct BranchPickerSettingsContent {
     /// Whether to show author name as part of the commit information.
@@ -327,7 +344,19 @@ pub struct BranchPickerSettingsContent {
     pub show_author_name: Option<bool>,
 }
 
-#[derive(Clone, Copy, PartialEq, Debug, Default, Serialize, Deserialize, JsonSchema, MergeFrom)]
+#[derive(
+    Clone,
+    Copy,
+    PartialEq,
+    Debug,
+    Default,
+    Serialize,
+    Deserialize,
+    JsonSchema,
+    MergeFrom,
+    strum::VariantArray,
+    strum::VariantNames,
+)]
 #[serde(rename_all = "snake_case")]
 pub enum GitHunkStyleSetting {
     /// Show unstaged hunks with a filled background and staged hunks hollow.
@@ -338,7 +367,7 @@ pub enum GitHunkStyleSetting {
 }
 
 #[skip_serializing_none]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema, MergeFrom)]
+#[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize, JsonSchema, MergeFrom)]
 pub struct DiagnosticsSettingsContent {
     /// Whether to show the project diagnostics button in the status bar.
     pub button: Option<bool>,
@@ -354,7 +383,9 @@ pub struct DiagnosticsSettingsContent {
 }
 
 #[skip_serializing_none]
-#[derive(Clone, Copy, Debug, Serialize, Deserialize, JsonSchema, MergeFrom, PartialEq, Eq)]
+#[derive(
+    Clone, Copy, Debug, Default, Serialize, Deserialize, JsonSchema, MergeFrom, PartialEq, Eq,
+)]
 pub struct LspPullDiagnosticsSettingsContent {
     /// Whether to pull for diagnostics or not.
     ///
@@ -368,7 +399,9 @@ pub struct LspPullDiagnosticsSettingsContent {
 }
 
 #[skip_serializing_none]
-#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize, JsonSchema, MergeFrom, Eq)]
+#[derive(
+    Clone, Copy, Debug, PartialEq, Default, Serialize, Deserialize, JsonSchema, MergeFrom, Eq,
+)]
 pub struct InlineDiagnosticsSettingsContent {
     /// Whether or not to show inline diagnostics
     ///
@@ -427,6 +460,8 @@ pub enum DirenvSettings {
     Deserialize,
     JsonSchema,
     MergeFrom,
+    strum::VariantArray,
+    strum::VariantNames,
 )]
 #[serde(rename_all = "snake_case")]
 pub enum DiagnosticSeverityContent {
@@ -435,8 +470,8 @@ pub enum DiagnosticSeverityContent {
     Error,
     Warning,
     Info,
-    #[serde(alias = "all")]
     Hint,
+    All,
 }
 
 /// A custom Git hosting provider.
@@ -461,4 +496,81 @@ pub enum GitHostingProviderKind {
     Github,
     Gitlab,
     Bitbucket,
+}
+
+#[derive(
+    Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema, MergeFrom, Default,
+)]
+#[serde(rename_all = "snake_case")]
+pub enum GitIntralineMode {
+    /// Disable intraline highlighting
+    None,
+    /// Highlight differences at the word level
+    #[default]
+    Word,
+    /// Highlight differences at the character level
+    Character,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema, MergeFrom, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum GitSplitDiffViewMode {
+    /// Show split view with left/right panes
+    #[default]
+    Split,
+    /// Show unified view
+    Unified,
+}
+
+#[derive(
+    Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema, MergeFrom, Default,
+)]
+#[serde(rename_all = "snake_case")]
+pub enum GitWhitespaceMode {
+    /// Don't ignore any whitespace
+    #[default]
+    None,
+    /// Ignore all whitespace
+    All,
+    /// Ignore trailing whitespace
+    Trailing,
+    /// Ignore leading whitespace
+    Leading,
+}
+
+#[skip_serializing_none]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema, MergeFrom, Default)]
+pub struct GitSplitDiffSettingsContent {
+    /// Default view mode for split diffs
+    ///
+    /// Default: split
+    pub default_view: Option<GitSplitDiffViewMode>,
+    /// Number of context lines to show around changes
+    ///
+    /// Default: 3
+    pub context_lines: Option<u32>,
+    /// How to handle whitespace in diffs
+    ///
+    /// Default: none
+    pub ignore_whitespace: Option<GitWhitespaceMode>,
+    /// Whether to synchronize scrolling between panes
+    ///
+    /// Default: true
+    pub sync_scroll: Option<bool>,
+    /// How to highlight intraline differences
+    ///
+    /// Default: word
+    pub intraline: Option<GitIntralineMode>,
+    /// Whether to wrap long lines
+    ///
+    /// Default: false
+    pub word_wrap: Option<bool>,
+    /// Default width for the diff viewer
+    ///
+    /// Default: 800
+    pub default_width: Option<f32>,
+    /// Default height for the diff viewer
+    ///
+    /// Default: 600
+    pub default_height: Option<f32>,
 }

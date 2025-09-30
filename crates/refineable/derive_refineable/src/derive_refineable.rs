@@ -510,14 +510,13 @@ fn is_refineable_field(f: &Field) -> bool {
 }
 
 fn is_optional_field(f: &Field) -> bool {
-    match &f.ty {
-        Type::Path(typepath) if typepath.qself.is_none() => {
-            let segments = &typepath.path.segments;
-            if segments.len() == 1 && segments.iter().any(|s| s.ident == "Option") {
-                return true;
-            }
+    if let Type::Path(typepath) = &f.ty
+        && typepath.qself.is_none()
+    {
+        let segments = &typepath.path.segments;
+        if segments.len() == 1 && segments.iter().any(|s| s.ident == "Option") {
+            return true;
         }
-        _ => {}
     }
     false
 }

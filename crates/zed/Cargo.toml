@@ -2,7 +2,7 @@
 description = "The fast, collaborative code editor."
 edition.workspace = true
 name = "zed"
-version = "0.207.0"
+version = "0.209.0"
 publish.workspace = true
 license = "GPL-3.0-or-later"
 authors = ["Zed Team <hi@zed.dev>"]
@@ -25,6 +25,7 @@ agent.workspace = true
 agent_settings.workspace = true
 agent_ui.workspace = true
 anyhow.workspace = true
+askpass.workspace = true
 assets.workspace = true
 assistant_tools.workspace = true
 audio.workspace = true
@@ -38,6 +39,7 @@ channel.workspace = true
 clap.workspace = true
 cli.workspace = true
 client.workspace = true
+codestral.workspace = true
 collab_ui.workspace = true
 collections.workspace = true
 command_palette.workspace = true
@@ -50,7 +52,6 @@ debug_adapter_extension.workspace = true
 debugger_tools.workspace = true
 debugger_ui.workspace = true
 diagnostics.workspace = true
-diff_viewer.workspace = true
 editor.workspace = true
 zeta2_tools.workspace = true
 env_logger.workspace = true
@@ -192,7 +193,7 @@ tree-sitter-md.workspace = true
 tree-sitter-rust.workspace = true
 workspace = { workspace = true, features = ["test-support"] }
 
-[package.metadata.bundle]
+[package.metadata.bundle-dev]
 icon = ["resources/app-icon-dev@2x.png", "resources/app-icon-dev.png"]
 identifier = "dev.zed.Zed-Dev"
 name = "Zed Dev"

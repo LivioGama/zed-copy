@@ -157,6 +157,8 @@ messages!(
     (ListToolchainsResponse, Foreground),
     (LoadCommitDiff, Foreground),
     (LoadCommitDiffResponse, Foreground),
+    (LoadCommittedText, Foreground),
+    (LoadCommittedTextResponse, Foreground),
     (LspExtExpandMacro, Background),
     (LspExtExpandMacroResponse, Background),
     (LspExtOpenDocs, Background),
@@ -324,6 +326,7 @@ messages!(
     (ExternalAgentsUpdated, Background),
     (ExternalAgentLoadingStatusUpdated, Background),
     (NewExternalAgentVersionAvailable, Background),
+    (RemoteStarted, Background),
 );
 
 request_messages!(
@@ -382,6 +385,7 @@ request_messages!(
     (LeaveChannelBuffer, Ack),
     (LeaveRoom, Ack),
     (LoadCommitDiff, LoadCommitDiffResponse),
+    (LoadCommittedText, LoadCommittedTextResponse),
     (MarkNotificationRead, Ack),
     (MoveChannel, Ack),
     (OnTypeFormatting, OnTypeFormattingResponse),
@@ -497,7 +501,8 @@ request_messages!(
     (GitClone, GitCloneResponse),
     (ToggleLspLogs, Ack),
     (GetProcesses, GetProcessesResponse),
-    (GetAgentServerCommand, AgentServerCommand)
+    (GetAgentServerCommand, AgentServerCommand),
+    (RemoteStarted, Ack),
 );
 
 lsp_messages!(
@@ -556,6 +561,7 @@ entity_messages!(
     LeaveProject,
     LinkedEditingRange,
     LoadCommitDiff,
+    LoadCommittedText,
     LspQuery,
     LspQueryResponse,
     RestartLanguageServers,

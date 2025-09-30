@@ -136,6 +136,7 @@ pub fn open_rules_library(
                     window_background: cx.theme().window_background_appearance(),
                     window_decorations: Some(window_decorations),
                     window_min_size: Some(size(px(800.), px(600.))), // 4:3 Aspect Ratio
+                    kind: gpui::WindowKind::Floating,
                     ..Default::default()
                 },
                 |window, cx| {
@@ -726,7 +727,7 @@ impl RulesLibrary {
                             editor.set_show_gutter(false, cx);
                             editor.set_show_wrap_guides(false, cx);
                             editor.set_show_indent_guides(false, cx);
-                            editor.set_use_modal_editing(false);
+                            editor.set_use_modal_editing(true);
                             editor.set_current_line_highlight(Some(CurrentLineHighlight::None));
                             editor.set_completion_provider(Some(make_completion_provider()));
                             if focus {
@@ -1354,6 +1355,7 @@ impl Render for RulesLibrary {
 
         client_side_decorations(
             v_flex()
+                .bg(theme.colors().background)
                 .id("rules-library")
                 .key_context("PromptLibrary")
                 .on_action(cx.listener(|this, &NewRule, window, cx| this.new_rule(window, cx)))
