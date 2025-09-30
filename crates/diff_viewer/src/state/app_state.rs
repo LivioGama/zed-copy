@@ -1,5 +1,6 @@
 // src/state/app_state.rs
 // Application state structure extracted from state/mod.rs
+#![allow(dead_code)]
 
 use crate::models::*;
 use crate::navigation::NavigationState;
@@ -17,8 +18,7 @@ pub struct AppState {
     pub connector_curves: Vec<ConnectorCurve>,
     pub navigation_state: NavigationState,
     pub viewport_height: f32,
-    pub left_scroll_offset: f32,
-    pub right_scroll_offset: f32,
+    pub scroll_offset: f32,
 }
 
 impl AppState {
@@ -34,8 +34,7 @@ impl AppState {
             connector_curves: Vec::new(),
             navigation_state: NavigationState::default(),
             viewport_height: 1000.0,
-            left_scroll_offset: 0.0,
-            right_scroll_offset: 0.0,
+            scroll_offset: 0.0,
         }
     }
 
@@ -85,9 +84,8 @@ impl AppState {
         self.viewport_height = height;
     }
 
-    pub fn update_scroll_offsets(&mut self, left: f32, right: f32) {
-        self.left_scroll_offset = left;
-        self.right_scroll_offset = right;
+    pub fn set_scroll_offset(&mut self, offset: f32) {
+        self.scroll_offset = offset;
     }
 
     pub fn get_current_block(&self) -> Option<&ChangeBlock> {

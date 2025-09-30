@@ -1,7 +1,9 @@
 use assets::Assets;
 use diff_viewer::diff_viewer_ui::DiffViewer;
 use editor;
-use gpui::{App, AppContext, Application, Bounds, WindowBounds, WindowOptions, px, size};
+use gpui::{
+    App, AppContext, Application, Bounds, KeyBinding, WindowBounds, WindowOptions, px, size,
+};
 use language;
 use project;
 use settings;
@@ -18,6 +20,19 @@ fn main() {
         project::Project::init_settings(cx);
         workspace::init_settings(cx);
         editor::init(cx);
+
+        cx.bind_keys([
+            KeyBinding::new("up", diff_viewer::app::ScrollUp, Some("DiffViewer")),
+            KeyBinding::new("down", diff_viewer::app::ScrollDown, Some("DiffViewer")),
+            KeyBinding::new("pageup", diff_viewer::app::PageUp, Some("DiffViewer")),
+            KeyBinding::new("pagedown", diff_viewer::app::PageDown, Some("DiffViewer")),
+            KeyBinding::new("j", diff_viewer::app::NextDiff, Some("DiffViewer")),
+            KeyBinding::new("k", diff_viewer::app::PreviousDiff, Some("DiffViewer")),
+            KeyBinding::new("]", diff_viewer::app::NextFile, Some("DiffViewer")),
+            KeyBinding::new("[", diff_viewer::app::PreviousFile, Some("DiffViewer")),
+            KeyBinding::new("d", diff_viewer::app::LoadDemo, Some("DiffViewer")),
+        ]);
+
         let bounds = Bounds::centered(None, size(px(1200.0), px(800.0)), cx);
         cx.open_window(
             WindowOptions {
@@ -29,7 +44,6 @@ fn main() {
                 ..Default::default()
             },
             |window, cx| {
-                // Sample file paths for demo - you can change these to actual files
                 let left_path = Some(
                     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("examples/ProvidersOld.tsx"),
                 );
@@ -37,12 +51,11 @@ fn main() {
                     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("examples/ProvidersNew.tsx"),
                 );
 
-                // Create the diff viewer
                 let diff_viewer = cx.new(|cx| DiffViewer::new(left_path, right_path, window, cx));
 
-                // Initialize the diff viewer (discover files and load diff)
                 diff_viewer.update(cx, |viewer: &mut DiffViewer, cx| {
                     viewer.initialize(cx);
+                    window.focus(&viewer.focus_handle);
                 });
 
                 diff_viewer

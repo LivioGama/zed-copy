@@ -7,6 +7,7 @@ use language::Buffer;
 use project::Project;
 use std::{ops::Range, sync::LazyLock};
 use text::ToOffset as _;
+use util::rel_path::RelPath;
 
 pub static COMPUTE_DIFF_TASK: LazyLock<gpui::TaskLabel> = LazyLock::new(gpui::TaskLabel::new);
 
@@ -173,8 +174,12 @@ impl DiffComputation {
             }
 
             Ok(SplitDiffModel {
-                left_spec: DiffSpec::working_directory(RepoPath::from("left")), // TODO: proper spec
-                right_spec: DiffSpec::working_directory(RepoPath::from("right")),
+                left_spec: DiffSpec::working_directory(RepoPath::from(
+                    RelPath::unix("left").unwrap(),
+                )), // TODO: proper spec
+                right_spec: DiffSpec::working_directory(RepoPath::from(
+                    RelPath::unix("right").unwrap(),
+                )),
                 hunks,
                 left_content: left_content.to_string(),
                 right_content: right_content.to_string(),
@@ -401,12 +406,21 @@ mod tests {
 
     #[test]
     fn test_diff_spec_creation() {
-        let spec = DiffSpec::working_directory(RepoPath::from("test.txt"));
-        assert_eq!(spec.path, RepoPath::from("test.txt"));
+        let spec = DiffSpec::working_directory(RepoPath::from(RelPath::unix("test.txt").unwrap()));
+        assert_eq!(
+            spec.path,
+            RepoPath::from(RelPath::unix("test.txt").unwrap())
+        );
         assert!(spec.revision.is_none());
 
-        let spec = DiffSpec::revision(RepoPath::from("test.txt"), "HEAD".to_string());
-        assert_eq!(spec.path, RepoPath::from("test.txt"));
+        let spec = DiffSpec::revision(
+            RepoPath::from(RelPath::unix("test.txt").unwrap()),
+            "HEAD".to_string(),
+        );
+        assert_eq!(
+            spec.path,
+            RepoPath::from(RelPath::unix("test.txt").unwrap())
+        );
         assert_eq!(spec.revision, Some("HEAD".to_string()));
     }
 

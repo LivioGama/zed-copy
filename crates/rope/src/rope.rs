@@ -110,10 +110,10 @@ impl Rope {
             {
                 self.push_chunk(chunk.as_slice());
 
-            let mut chunks = rope.chunks.cursor::<()>(());
+                let mut chunks = rope.chunks.cursor::<()>(());
                 chunks.next();
                 chunks.next();
-            self.chunks.append(chunks.suffix(), ());
+                self.chunks.append(chunks.suffix(), ());
                 self.check_invariants();
                 return;
             }

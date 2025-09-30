@@ -89,8 +89,7 @@ use workspace::{
 };
 use workspace::{Pane, notifications::DetachAndPromptErr};
 use zed_actions::{
-    OpenAccountSettings, OpenBrowser, OpenDiffViewer, OpenDocs, OpenServerSettings, OpenSettings,
-    OpenZedUrl, Quit,
+    OpenAccountSettings, OpenBrowser, OpenDocs, OpenServerSettings, OpenSettings, OpenZedUrl, Quit,
 };
 
 actions!(
@@ -261,39 +260,6 @@ pub fn init(cx: &mut App) {
                 cx,
             );
         });
-    });
-    cx.on_action(|_: &OpenDiffViewer, cx| {
-        // Open the diff viewer as a new window
-        let left_path = Some(
-            std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("examples/ProvidersOld.tsx"),
-        );
-        let right_path = Some(
-            std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("examples/ProvidersNew.tsx"),
-        );
-
-        cx.open_window(
-            gpui::WindowOptions {
-                window_bounds: Some(gpui::WindowBounds::Windowed(gpui::Bounds::centered(
-                    None,
-                    gpui::size(gpui::px(1600.0), gpui::px(1000.0)),
-                    cx,
-                ))),
-                titlebar: Some(gpui::TitlebarOptions {
-                    title: Some("JetBrains Diff Viewer".into()),
-                    ..Default::default()
-                }),
-                ..Default::default()
-            },
-            |window, cx| {
-                let diff_viewer =
-                    cx.new(|cx| diff_viewer::DiffViewer::new(left_path, right_path, window, cx));
-                diff_viewer.update(cx, |viewer: &mut diff_viewer::DiffViewer, cx| {
-                    viewer.load_diff(cx);
-                });
-                diff_viewer
-            },
-        )
-        .ok();
     });
 }
 

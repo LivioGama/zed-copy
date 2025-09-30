@@ -77,7 +77,7 @@ pub struct SplitDiffSettings {
 impl Default for SplitDiffSettings {
     fn default() -> Self {
         Self {
-            default_view: SplitDiffViewMode::Split,
+            default_view: SplitDiffViewMode::Unified,
             context_lines: 3,
             ignore_whitespace: WhitespaceMode::None,
             sync_scroll: true,

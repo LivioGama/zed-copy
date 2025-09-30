@@ -1,0 +1,5 @@
+---
+alwaysApply: false
+---
+
+We work in ./crates/diff_viewer/. We started implementing a copy of gpui_version into src, because its a reference of the perfectly working version. The implementation in src start to be good but there are still some discrepancies. Your goal is to fix the src project but copying to maximum extent the gpui_version original implementation, while adapting to the root project Zed.

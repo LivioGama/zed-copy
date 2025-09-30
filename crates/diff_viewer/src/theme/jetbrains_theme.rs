@@ -1,7 +1,6 @@
 // JetBrains theme implementation with Zed IDE font specifications
-use crate::config::{FontMetrics, LineHeightMode, ZedFontConfig, ZedFontManager, ZedSettings};
+use crate::config::{LineHeightMode, ZedFontConfig, ZedFontManager, ZedSettings};
 use egui::{Color32, Stroke};
-use gpui::Hsla;
 
 #[derive(Debug, Clone)]
 pub struct JetBrainsTheme {
@@ -72,7 +71,7 @@ impl JetBrainsTheme {
     pub fn apply_to_context(&self, ctx: &egui::Context) {
         // Apply Zed font configuration first
         let font_manager = ZedFontManager::with_config(self.font_config.clone());
-        font_manager.apply_to_context(ctx);
+        // font_manager.apply_to_context(ctx);
 
         let mut style = (*ctx.style()).clone();
         style.visuals.dark_mode = self.background.r() < 128;
@@ -102,12 +101,18 @@ impl JetBrainsTheme {
 
     /// Get buffer font ID for egui
     pub fn buffer_font_id(&self) -> egui::FontId {
-        self.font_config.buffer_font_id()
+        egui::FontId::new(
+            self.font_config.buffer_font_size(),
+            egui::FontFamily::Monospace,
+        )
     }
 
     /// Get UI font ID for egui
     pub fn ui_font_id(&self) -> egui::FontId {
-        self.font_config.ui_font_id()
+        egui::FontId::new(
+            self.font_config.ui_font_size,
+            egui::FontFamily::Proportional,
+        )
     }
 
     /// Check if ligatures are enabled
@@ -117,12 +122,12 @@ impl JetBrainsTheme {
 
     /// Calculate baseline offset for text rendering
     pub fn baseline_offset(&self) -> f32 {
-        FontMetrics::calculate_baseline_offset(self.line_height(), self.buffer_font_size())
+        (self.line_height() - self.buffer_font_size()) / 2.0
     }
 
     /// Get character width approximation for monospace text
     pub fn char_width(&self) -> f32 {
-        FontMetrics::approximate_char_width(self.buffer_font_size())
+        self.buffer_font_size() * 0.6
     }
 
     /// Get Zed editor settings
@@ -175,78 +180,6 @@ impl JetBrainsTheme {
             crate::models::line::LineType::Deletion => self.deletion_background,
             crate::models::line::LineType::Modification => self.modification_background,
             crate::models::line::LineType::Context => Color32::TRANSPARENT,
-        }
-    }
-
-    // GPUI color conversion methods
-    pub fn addition_background_hsla(&self) -> Hsla {
-        self.color32_to_hsla(self.addition_background)
-    }
-
-    pub fn deletion_background_hsla(&self) -> Hsla {
-        self.color32_to_hsla(self.deletion_background)
-    }
-
-    pub fn modification_background_hsla(&self) -> Hsla {
-        self.color32_to_hsla(self.modification_background)
-    }
-
-    pub fn background_hsla(&self) -> Hsla {
-        self.color32_to_hsla(self.background)
-    }
-
-    pub fn foreground_hsla(&self) -> Hsla {
-        self.color32_to_hsla(self.foreground)
-    }
-
-    pub fn border_hsla(&self) -> Hsla {
-        self.color32_to_hsla(self.border)
-    }
-
-    pub fn get_connector_color_hsla(&self, line_type: &crate::models::line::LineType) -> Hsla {
-        let color32 = self.get_connector_color(line_type);
-        self.color32_to_hsla(color32)
-    }
-
-    // Convert egui Color32 to gpui Hsla
-    fn color32_to_hsla(&self, color: Color32) -> Hsla {
-        let r = color.r() as f32 / 255.0;
-        let g = color.g() as f32 / 255.0;
-        let b = color.b() as f32 / 255.0;
-        let a = color.a() as f32 / 255.0;
-
-        // Convert RGB to HSL
-        let max = r.max(g.max(b));
-        let min = r.min(g.min(b));
-        let delta = max - min;
-
-        let lightness = (max + min) / 2.0;
-
-        let (hue, saturation) = if delta == 0.0 {
-            (0.0, 0.0)
-        } else {
-            let saturation = if lightness < 0.5 {
-                delta / (max + min)
-            } else {
-                delta / (2.0 - max - min)
-            };
-
-            let hue = if max == r {
-                (g - b) / delta + if g < b { 6.0 } else { 0.0 }
-            } else if max == g {
-                (b - r) / delta + 2.0
-            } else {
-                (r - g) / delta + 4.0
-            };
-
-            (hue / 6.0, saturation)
-        };
-
-        Hsla {
-            h: hue,
-            s: saturation,
-            l: lightness,
-            a,
         }
     }
 

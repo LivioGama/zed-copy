@@ -774,139 +774,25 @@ impl GitPanel {
     }
 
     fn open_diff(&mut self, _: &menu::Confirm, window: &mut Window, cx: &mut Context<Self>) {
-        println!("📂 open_diff called - opening JetBrains Diff Viewer");
+        println!("📂 open_diff called");
         maybe!({
             let entry = self.entries.get(self.selected_entry?)?.status_entry()?;
             let workspace = self.workspace.upgrade()?;
-            let git_repo = self.active_repository.as_ref()?;
-
-            if let Some(project_diff) = workspace.read(cx).active_item_as::<ProjectDiff>(cx)
-                && let Some(project_path) = project_diff.read(cx).active_path(cx)
-                && Some(&entry.repo_path)
-                    == git_repo
-                        .read(cx)
-                        .project_path_to_repo_path(&project_path, cx)
-                        .as_ref()
-            {
-                project_diff.focus_handle(cx).focus(window);
-                project_diff.update(cx, |project_diff, cx| project_diff.autoscroll(cx));
-                return None;
-            };
-
-            // Open JetBrains Diff Viewer as standalone window instead of ProjectDiff
-            cx.open_window(
-                gpui::WindowOptions {
-                    window_bounds: Some(gpui::WindowBounds::Windowed(gpui::Bounds {
-                        origin: gpui::Point::new(gpui::px(100.0), gpui::px(100.0)),
-                        size: gpui::size(gpui::px(1600.0), gpui::px(1000.0)),
-                    })),
-                    titlebar: Some(gpui::TitlebarOptions {
-                        title: Some("JetBrains Diff Viewer".into()),
-                        ..Default::default()
-                    }),
-                    ..Default::default()
-                },
-                |window, cx| {
-                    let left_path = Some(entry.repo_path.to_path_buf());
-                    let right_path = Some(entry.repo_path.to_path_buf()); // For now, use same path for demo
-
-                    let diff_viewer = cx.new(|cx| {
-                        diff_viewer::DiffViewer::new(left_path, right_path, window, cx)
-                    });
-                    diff_viewer.update(cx, |viewer, cx| {
-                        viewer.load_diff(cx);
-                    });
-                    diff_viewer
-                },
-            )
-            .ok();
+            workspace.update(cx, |workspace, cx| {
+                project_diff::ProjectDiff::deploy_at(workspace, Some(entry.clone()), window, cx);
+            });
+            Some(())
         });
     }
 
     fn open_split_diff(&mut self, _: &OpenSplitDiff, window: &mut Window, cx: &mut Context<Self>) {
-        println!("🎯 open_split_diff called - opening JetBrains diff viewer");
+        println!("🎯 open_split_diff called");
         maybe!({
-            let entry = self
-                .entries
-                .get(self.selected_entry?)?
-                .status_entry()?
-                .clone();
+            let entry = self.entries.get(self.selected_entry?)?.status_entry()?;
             let workspace = self.workspace.upgrade()?;
-            let git_repo = self.active_repository.as_ref()?;
-
-            // Get the project path for the file
-            let project_path = git_repo
-                .read(cx)
-                .repo_path_to_project_path(&entry.repo_path, cx)?;
-
-            // Get working directory buffer
-            let project = workspace.read(cx).project().clone();
-            let left_buffer = project.update(cx, |project, cx| {
-                project.open_buffer(project_path.clone(), cx)
+            workspace.update(cx, |workspace, cx| {
+                project_diff::ProjectDiff::deploy_at(workspace, Some(entry.clone()), window, cx);
             });
-
-            // Get committed content from git repository
-            let right_content = git_repo.update(cx, |repo, _cx| {
-                repo.get_committed_text(entry.repo_path.clone(), _cx)
-            });
-
-            let workspace_handle = workspace.downgrade();
-            let project = workspace.read(cx).project().clone();
-
-            // let settings = SplitDiffSettings::get_global(cx);
-            // let options = DiffOptions::from_settings(&settings);
-
-            window
-                .spawn(cx, async move |cx| {
-                    let left_buffer = left_buffer.await?;
-                    let right_content = right_content.await.unwrap_or_default();
-
-                    // Use existing project diff approach for now
-                    // Create the split diff model and view using the working pattern
-                    let right_buffer = cx.new(|cx| Buffer::local(&right_content, cx))?;
-
-                    let options = crate::split_diff_model::DiffOptions::default();
-                    let computation = crate::split_diff_model::DiffComputation::new(
-                        left_buffer,
-                        right_buffer,
-                        options,
-                    );
-                    let model = computation.compute(cx).await?;
-
-                    // Use the new JetBrains Diff Viewer instead of PerfectSplitDiffView
-                    let left_path = Some(entry.repo_path.to_path_buf());
-                    let right_path = Some(entry.repo_path.to_path_buf()); // For now, use same path for demo
-
-                    // Open as standalone window since DiffViewer is not yet a workspace item
-                    cx.open_window(
-                        gpui::WindowOptions {
-                            window_bounds: Some(gpui::WindowBounds::Windowed(gpui::Bounds {
-                                origin: gpui::Point::new(gpui::px(100.0), gpui::px(100.0)),
-                                size: gpui::size(gpui::px(1600.0), gpui::px(1000.0)),
-                            })),
-                            titlebar: Some(gpui::TitlebarOptions {
-                                title: Some("JetBrains Diff Viewer".into()),
-                                ..Default::default()
-                            }),
-                            ..Default::default()
-                        },
-                        |window, cx| {
-                            let diff_viewer = cx.new(|cx| {
-                                diff_viewer::DiffViewer::new(left_path, right_path, window, cx)
-                            });
-                            diff_viewer.update(cx, |viewer, cx| {
-                                viewer.load_diff(cx);
-                            });
-                            diff_viewer
-                        },
-                    )
-                    .ok();
-
-                    anyhow::Ok(())
-                })
-                .detach_and_log_err(cx);
-
-            self.focus_handle.focus(window);
             Some(())
         });
     }
@@ -916,16 +802,17 @@ impl GitPanel {
         _: &OpenEnhancedDiff,
         window: &mut Window,
         cx: &mut Context<Self>,
-        fn open_diff(&mut self, _: &menu::Confirm, window: &mut Window, cx: &mut Context<Self>) {
-            println!("📂 open_diff called - opening ProjectDiff");
-            maybe!({
-                let entry = self.entries.get(self.selected_entry?)?.status_entry()?;
-                let workspace = self.workspace.upgrade()?;
-                let git_repo = self.active_repository.as_ref()?;
+    ) {
+        println!("📂 open_enhanced_diff called - opening PerfectSplitDiff");
+        maybe!({
+            let entry = self.entries.get(self.selected_entry?)?.status_entry()?;
+            let workspace = self.workspace.upgrade()?;
+            let git_repo = self.active_repository.as_ref()?;
 
-            // Enhanced diff functionality temporarily disabled
-            // TODO: Re-enable when split_diff modules are available
-            let _ = (git_repo, entry, workspace); // Prevent unused variable warnings
+            // Open the diff view in split mode
+            workspace.update(cx, |workspace, cx| {
+                ProjectDiff::deploy_at(workspace, Some(entry.clone()), window, cx);
+            });
 
             Some(())
         });

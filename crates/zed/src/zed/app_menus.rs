@@ -185,7 +185,6 @@ pub fn app_menus() -> Vec<Menu> {
                 MenuItem::action("Debugger Panel", ToggleDebugPanel),
                 MenuItem::separator(),
                 MenuItem::action("Diagnostics", diagnostics::Deploy),
-                MenuItem::action("Diff Viewer", zed_actions::OpenDiffViewer),
                 MenuItem::separator(),
             ],
         },

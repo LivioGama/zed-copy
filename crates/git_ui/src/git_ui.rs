@@ -1,8 +1,4 @@
-use std::any::Any;
-
-use command_palette_hooks::CommandPaletteFilter;
-use commit_modal::CommitModal;
-use editor::{Editor, actions::DiffClipboardWithSelectionData};
+use editor::Editor;
 use ui::{
     Headline, HeadlineSize, Icon, IconName, IconSize, IntoElement, ParentElement, Render, Styled,
     StyledExt, div, h_flex, rems, v_flex,
@@ -10,25 +6,21 @@ use ui::{
 
 mod blame_ui;
 
-// use diff_viewer;
 use git::{
     repository::{Branch, Upstream, UpstreamTracking, UpstreamTrackingStatus},
     status::{FileStatus, StatusCode, UnmergedStatus, UnmergedStatusCode},
 };
 use git_panel_settings::GitPanelSettings;
 use gpui::{
-    Action, App, Context, DismissEvent, Entity, EventEmitter, FocusHandle, Focusable, SharedString,
-    Window, actions,
+    App, Context, DismissEvent, Entity, EventEmitter, FocusHandle, Focusable, SharedString, Window,
+    actions,
 };
 use menu::{Cancel, Confirm};
-use onboarding::GitOnboardingModal;
 use project::git_store::Repository;
-use project_diff::ProjectDiff;
 use ui::prelude::*;
 use workspace::{ModalView, Workspace, notifications::DetachAndPromptErr};
-use zed_actions;
 
-use crate::{git_panel::GitPanel, text_diff_view::TextDiffView};
+use crate::git_panel::GitPanel;
 // use crate::enhanced_diff_view;
 use settings::Settings;
 
@@ -43,7 +35,6 @@ pub mod file_diff_view;
 pub mod git_panel;
 mod git_panel_settings;
 pub mod onboarding;
-pub mod perfect_split_diff_view;
 pub mod picker_prompt;
 pub mod project_diff;
 pub(crate) mod remote_output;
@@ -100,8 +91,11 @@ pub fn init(cx: &mut App) {
     })
     .detach();
 
-    // Simplified git_ui init - removed problematic observe_new block
-    // The key diff viewer functionality is handled in git_panel.rs
+    cx.observe_new(|workspace: &mut Workspace, _, cx| {
+        git_panel::register(workspace);
+        project_diff::ProjectDiff::register(workspace, cx);
+    })
+    .detach();
 }
 
 fn open_modified_files(
