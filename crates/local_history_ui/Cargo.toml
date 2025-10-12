@@ -21,3 +21,4 @@ log.workspace = true
 
 collections.workspace = true
 local_history.workspace = true
+ui.workspace = true

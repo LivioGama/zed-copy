@@ -1,32 +1,15 @@
 use anyhow::Result;
-use gpui::{App, Context, Entity, Global};
 use local_history::{FileId, LocalHistory, SnapshotLabel, StorageConfig, WorkspaceId};
 use std::path::Path;
-
-pub fn init(cx: &mut App) {
-    let config = StorageConfig::default();
-    if let Ok(history) = LocalHistory::new(config) {
-        let manager = cx.new(|_| LocalHistoryManager::new(history));
-        cx.set_global(GlobalLocalHistoryManager(manager));
-    }
-}
-
-struct GlobalLocalHistoryManager(Entity<LocalHistoryManager>);
-
-impl Global for GlobalLocalHistoryManager {}
 
 pub struct LocalHistoryManager {
     history: LocalHistory,
 }
 
 impl LocalHistoryManager {
-    pub fn new(history: LocalHistory) -> Self {
-        Self { history }
-    }
-
-    pub fn global(cx: &App) -> Option<Entity<Self>> {
-        cx.try_global::<GlobalLocalHistoryManager>()
-            .map(|model| model.0.clone())
+    pub fn new(config: StorageConfig) -> Result<Self> {
+        let history = LocalHistory::new(config)?;
+        Ok(Self { history })
     }
 
     /// Create a snapshot for a file
@@ -97,3 +80,4 @@ impl LocalHistoryManager {
         self.history.get_snapshot_content(snapshot_id).await
     }
 }
+

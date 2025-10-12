@@ -9373,6 +9373,7 @@ dependencies = [
  "gpui",
  "local_history",
  "log",
+ "ui",
  "zed-collections",
 ]
 
