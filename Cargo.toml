@@ -106,6 +106,7 @@ members = [
     "crates/livekit_client",
     "crates/lmstudio",
     "crates/local_history",
+    "crates/local_history_ui",
     "crates/lsp",
     "crates/markdown",
     "crates/markdown_preview",
@@ -340,6 +341,7 @@ livekit_api = { path = "crates/livekit_api" }
 livekit_client = { path = "crates/livekit_client" }
 lmstudio = { path = "crates/lmstudio" }
 local_history = { path = "crates/local_history" }
+local_history_ui = { path = "crates/local_history_ui" }
 lsp = { path = "crates/lsp" }
 markdown = { path = "crates/markdown" }
 markdown_preview = { path = "crates/markdown_preview" }
