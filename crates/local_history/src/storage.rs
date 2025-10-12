@@ -316,6 +316,8 @@ impl HistoryStorage {
     fn get_blob_path(&self, snapshot_id: &SnapshotId) -> PathBuf {
         let hex = snapshot_id.to_hex();
         let (prefix, rest) = hex.split_at(2);
-        self.blob_dir.join(prefix).join(rest)
+        let dir = self.blob_dir.join(prefix);
+        std::fs::create_dir_all(&dir).ok();
+        dir.join(rest)
     }
 }

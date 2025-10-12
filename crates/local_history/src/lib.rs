@@ -1,10 +1,14 @@
+mod diff;
 mod identifiers;
+mod revert;
 mod snapshot;
 mod storage;
 mod types;
 mod watcher;
 
+pub use diff::{DiffChange, diff_lines, format_unified_diff};
 pub use identifiers::{FileId, SnapshotId, WorkspaceId};
+pub use revert::{preview_revert, revert_to_snapshot};
 pub use snapshot::{Snapshot, SnapshotLabel, SnapshotMetadata};
 pub use storage::{HistoryStorage, StorageConfig};
 pub use types::{FileChange, SnapshotGroup};
