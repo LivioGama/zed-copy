@@ -1,0 +1,40 @@
+[package]
+name = "local_history"
+version = "0.1.0"
+edition.workspace = true
+publish.workspace = true
+license = "GPL-3.0-or-later"
+
+[lints]
+workspace = true
+
+[lib]
+path = "src/lib.rs"
+doctest = false
+
+[dependencies]
+anyhow.workspace = true
+async-trait.workspace = true
+bincode.workspace = true
+blake3 = "1.5"
+chrono.workspace = true
+futures.workspace = true
+hex.workspace = true
+log.workspace = true
+notify = { git = "https://github.com/zed-industries/notify.git", rev = "bbb9ea5ae52b253e095737847e367c30653a2e96", features = ["serde"] }
+parking_lot.workspace = true
+rusqlite = { version = "0.32", features = ["bundled"] }
+serde.workspace = true
+serde_json.workspace = true
+smallvec.workspace = true
+thiserror.workspace = true
+tokio.workspace = true
+uuid.workspace = true
+zstd.workspace = true
+
+collections.workspace = true
+paths.workspace = true
+util.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
